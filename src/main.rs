@@ -1,3 +1,4 @@
+mod api;
 mod github;
 
 use axum::Router;
@@ -6,7 +7,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 fn app() -> Router {
     Router::new()
-        .nest("/api/github", github::routes())
+        .nest_service("/api", api::routes())
         .layer(TraceLayer::new_for_http())
 }
 
@@ -21,7 +22,7 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], 8080));
+    let addr = std::net::SocketAddr::from(([0, 0, 0, 0], 8080));
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app()).await.unwrap();
@@ -35,11 +36,11 @@ mod tests {
         http::{Request, StatusCode},
     };
     use http_body_util::BodyExt;
-    use serde_json::json;
+    use serde_json::{Value, json};
     use tower::util::ServiceExt;
 
     #[tokio::test]
-    async fn test_github_webhook() {
+    async fn github_webhook() {
         let app = app();
         let response = app
             .oneshot(
@@ -59,7 +60,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_not_found() {
+    async fn not_found() {
         let app = app();
         let response = app
             .oneshot(
@@ -73,5 +74,31 @@ mod tests {
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
         let body = response.into_body().collect().await.unwrap().to_bytes();
         assert!(body.is_empty());
+    }
+
+    #[tokio::test]
+    async fn api_not_found() {
+        let app = app();
+        let response = app
+            .oneshot(Request::builder().uri("/api").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body, json!({"type": "ResourceNotFound", "uri": "/api"}));
+    }
+
+    #[tokio::test]
+    async fn api_slash_not_found() {
+        let app = app();
+        let response = app
+            .oneshot(Request::builder().uri("/api/").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body, json!({"type": "ResourceNotFound", "uri": "/api/"}));
     }
 }

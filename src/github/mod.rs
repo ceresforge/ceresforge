@@ -1,9 +1,10 @@
-use axum::{
-    Json, Router,
-    body::Bytes,
-    http::{HeaderMap, Method, StatusCode},
-    routing::post,
+use crate::api::{
+    Result,
+    error::{InvalidUserAgent, SignatureMismatch, UnsupportedContentType},
+    header_get_required,
 };
+
+use axum::{Json, Router, body::Bytes, http::HeaderMap, routing::post};
 use hmac::{Hmac, Mac};
 use serde::Deserialize;
 use sha2::Sha256;
@@ -116,75 +117,61 @@ struct Push {
     organization: Option<Organization>,
 }
 
-fn hex_digest(secret: &str, bytes: &[u8]) -> String {
-    let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).unwrap();
+fn hex_digest(secret: &str, bytes: &[u8]) -> Result<String> {
+    let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes())?;
     mac.update(bytes);
     let bytes = mac.finalize().into_bytes();
-    bytes
+    Ok(bytes
         .iter()
         .map(|b| format!("{:02x}", b))
         .collect::<Vec<String>>()
-        .join("")
+        .join(""))
 }
 
-fn signature_matches(signature: &str, bytes: &[u8]) -> bool {
-    let secret = std::env::var("GITHUB_WEBHOOK_SECRET").unwrap();
-    let expected = format!("sha256={}", hex_digest(&secret, bytes));
-    signature == expected
+fn check_signature(signature: &str, bytes: &[u8]) -> Result<()> {
+    let secret = std::env::var("GITHUB_WEBHOOK_SECRET")?;
+    let digest = hex_digest(&secret, bytes)?;
+    let expected = format!("sha256={}", digest);
+    if signature == expected {
+        Ok(())
+    } else {
+        Err(SignatureMismatch::new(signature.to_string()).into())
+    }
 }
 
-async fn webhook(method: Method, headers: HeaderMap, bytes: Bytes) -> StatusCode {
-    if method != Method::POST {
-        return StatusCode::METHOD_NOT_ALLOWED;
-    }
-
-    macro_rules! header {
-        ($literal:literal) => {
-            match headers.get($literal) {
-                Some(val) => match val.to_str() {
-                    Ok(s) => s,
-                    Err(_) => return StatusCode::BAD_REQUEST,
-                },
-                None => return StatusCode::BAD_REQUEST,
-            }
-        };
-    }
-    let content_type = header!("content-type");
-    let _hook_id = header!("x-github-hook-id");
-    let event = header!("x-github-event");
-    let _delivery = header!("x-github-delivery");
-    let _signature = header!("x-hub-signature");
-    let signature_256 = header!("x-hub-signature-256");
-    let user_agent = header!("user-agent");
-    let _installation_target_type = header!("x-github-hook-installation-target-type");
-    let _installation_target_id = header!("x-github-hook-installation-target-id");
+async fn webhook(headers: HeaderMap, bytes: Bytes) -> Result<()> {
+    let content_type = header_get_required(&headers, "content-type")?;
+    let _hook_id = header_get_required(&headers, "x-github-hook-id")?;
+    let event = header_get_required(&headers, "x-github-event")?;
+    let _delivery = header_get_required(&headers, "x-github-delivery")?;
+    let _signature = header_get_required(&headers, "x-hub-signature")?;
+    let signature_256 = header_get_required(&headers, "x-hub-signature-256")?;
+    let user_agent = header_get_required(&headers, "user-agent")?;
+    let _installation_target_type =
+        header_get_required(&headers, "x-github-hook-installation-target-type")?;
+    let _installation_target_id =
+        header_get_required(&headers, "x-github-hook-installation-target-id")?;
 
     if content_type != "application/json" {
-        return StatusCode::BAD_REQUEST;
+        return Err(UnsupportedContentType::new(content_type.to_string()).into());
     }
     if !user_agent.starts_with("GitHub-Hookshot/") {
-        return StatusCode::BAD_REQUEST;
+        return Err(InvalidUserAgent::new(user_agent.to_string()).into());
     }
-    if !signature_matches(signature_256, &bytes) {
-        return StatusCode::BAD_REQUEST;
-    }
+
+    check_signature(signature_256, &bytes)?;
+
     match event {
         "push" => {
-            let Json(_push): Json<Push> = match Json::from_bytes(&bytes) {
-                Ok(json) => json,
-                Err(_) => return StatusCode::BAD_REQUEST,
-            };
+            let Json(_push): Json<Push> = Json::from_bytes(&bytes)?;
         }
         "membership" => {
-            let Json(_membership): Json<Membership> = match Json::from_bytes(&bytes) {
-                Ok(json) => json,
-                Err(_) => return StatusCode::BAD_REQUEST,
-            };
+            let Json(_membership): Json<Membership> = Json::from_bytes(&bytes)?;
         }
         _ => (),
     }
 
-    StatusCode::OK
+    Ok(())
 }
 
 pub fn routes() -> Router {
