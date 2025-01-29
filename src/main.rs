@@ -1,12 +1,17 @@
 mod api;
-mod github;
+mod forgejo;
 
-use axum::Router;
+use axum::{Router, response::Html, routing::get};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+async fn home() -> Html<&'static str> {
+    Html(include_str!("../frontend/home.html"))
+}
+
 fn app() -> Router {
     Router::new()
+        .route("/", get(home))
         .nest_service("/api", api::routes())
         .layer(TraceLayer::new_for_http())
 }
@@ -40,12 +45,12 @@ mod tests {
     use tower::util::ServiceExt;
 
     #[tokio::test]
-    async fn github_webhook() {
+    async fn forgejo_webhook() {
         let app = app();
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/api/github/webhook")
+                    .uri("/api/forgejo/webhook")
                     .method("POST")
                     .header("content-type", "application/json")
                     .header("user-agent", "GitHub-Hookshot/0123456")
@@ -57,6 +62,31 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(
+            body,
+            json!({"type": "MissingHeader", "key": "x-forgejo-hook-id"})
+        );
+    }
+
+    #[tokio::test]
+    async fn forgejo_webhook_method_not_allowed() {
+        let app = app();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/forgejo/webhook")
+                    .method("GET")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body, json!({"type": "MethodNotAllowed", "method": "GET"}));
     }
 
     #[tokio::test]

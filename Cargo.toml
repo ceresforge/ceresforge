@@ -2,7 +2,7 @@
 name = "ceresforge"
 version = "0.0.2-dev"
 edition = "2024"
-description = "A web platform for creating, learning, and testing software"
+description = "A web platform for learning, creating, and testing software"
 license = "MPL-2.0"
 
 [dependencies]

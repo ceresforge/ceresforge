@@ -1,163 +1,156 @@
 use axum::{
-    Json,
     extract::rejection::JsonRejection,
     http::{StatusCode, header::ToStrError},
-    response::{IntoResponse, Response},
 };
 use serde::Serialize;
+use std::error::Error;
 
 #[derive(Debug, Serialize)]
 #[non_exhaustive]
 #[serde(tag = "type")]
-pub enum Error {
-    InternalServerError(InternalServerError),
+pub enum ApiError {
+    InternalError(InternalError),
     ResourceNotFound(ResourceNotFound),
     MethodNotAllowed(MethodNotAllowed),
     MissingHeader(MissingHeader),
     MalformedHeader(MalformedHeader),
-    UnsupportedContentType(UnsupportedContentType),
-    InvalidUserAgent(InvalidUserAgent),
-    SignatureMismatch(SignatureMismatch),
+    UnsupportedMediaType(UnsupportedMediaType),
+    UnsupportedUserAgent(UnsupportedUserAgent),
+    MismatchedSignature(MismatchedSignature),
     JsonError(JsonError),
 }
 
-impl Error {
+impl ApiError {
     pub fn status(&self) -> StatusCode {
         match self {
-            Error::InternalServerError(err) => err.status(),
-            Error::ResourceNotFound(err) => err.status(),
-            Error::MethodNotAllowed(err) => err.status(),
-            Error::MissingHeader(err) => err.status(),
-            Error::MalformedHeader(err) => err.status(),
-            Error::UnsupportedContentType(err) => err.status(),
-            Error::InvalidUserAgent(err) => err.status(),
-            Error::SignatureMismatch(err) => err.status(),
-            Error::JsonError(err) => err.status(),
+            ApiError::InternalError(err) => err.status(),
+            ApiError::ResourceNotFound(err) => err.status(),
+            ApiError::MethodNotAllowed(err) => err.status(),
+            ApiError::MissingHeader(err) => err.status(),
+            ApiError::MalformedHeader(err) => err.status(),
+            ApiError::UnsupportedMediaType(err) => err.status(),
+            ApiError::UnsupportedUserAgent(err) => err.status(),
+            ApiError::MismatchedSignature(err) => err.status(),
+            ApiError::JsonError(err) => err.status(),
         }
     }
 }
 
-impl std::fmt::Display for Error {
+impl std::fmt::Display for ApiError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         match self {
-            Error::InternalServerError(err) => write!(f, "{err}"),
-            Error::ResourceNotFound(err) => write!(f, "{err}"),
-            Error::MethodNotAllowed(err) => write!(f, "{err}"),
-            Error::MissingHeader(err) => write!(f, "{err}"),
-            Error::MalformedHeader(err) => write!(f, "{err}"),
-            Error::UnsupportedContentType(err) => write!(f, "{err}"),
-            Error::InvalidUserAgent(err) => write!(f, "{err}"),
-            Error::SignatureMismatch(err) => write!(f, "{err}"),
-            Error::JsonError(err) => write!(f, "{err}"),
+            ApiError::InternalError(err) => write!(f, "{err}"),
+            ApiError::ResourceNotFound(err) => write!(f, "{err}"),
+            ApiError::MethodNotAllowed(err) => write!(f, "{err}"),
+            ApiError::MissingHeader(err) => write!(f, "{err}"),
+            ApiError::MalformedHeader(err) => write!(f, "{err}"),
+            ApiError::UnsupportedMediaType(err) => write!(f, "{err}"),
+            ApiError::UnsupportedUserAgent(err) => write!(f, "{err}"),
+            ApiError::MismatchedSignature(err) => write!(f, "{err}"),
+            ApiError::JsonError(err) => write!(f, "{err}"),
         }
     }
 }
 
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+impl Error for ApiError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            Error::InternalServerError(err) => err.source(),
-            Error::ResourceNotFound(err) => err.source(),
-            Error::MethodNotAllowed(err) => err.source(),
-            Error::MissingHeader(err) => err.source(),
-            Error::MalformedHeader(err) => err.source(),
-            Error::UnsupportedContentType(err) => err.source(),
-            Error::InvalidUserAgent(err) => err.source(),
-            Error::SignatureMismatch(err) => err.source(),
-            Error::JsonError(err) => err.source(),
+            ApiError::InternalError(err) => err.source(),
+            ApiError::ResourceNotFound(err) => err.source(),
+            ApiError::MethodNotAllowed(err) => err.source(),
+            ApiError::MissingHeader(err) => err.source(),
+            ApiError::MalformedHeader(err) => err.source(),
+            ApiError::UnsupportedMediaType(err) => err.source(),
+            ApiError::UnsupportedUserAgent(err) => err.source(),
+            ApiError::MismatchedSignature(err) => err.source(),
+            ApiError::JsonError(err) => err.source(),
         }
     }
 }
 
-impl From<hmac::digest::InvalidLength> for Error {
-    fn from(err: hmac::digest::InvalidLength) -> Error {
-        Error::InternalServerError(InternalServerError::new(Box::new(err)))
+impl From<hmac::digest::InvalidLength> for ApiError {
+    fn from(err: hmac::digest::InvalidLength) -> ApiError {
+        ApiError::InternalError(InternalError::new(Box::new(err)))
     }
 }
 
-impl From<std::env::VarError> for Error {
-    fn from(err: std::env::VarError) -> Error {
-        Error::InternalServerError(InternalServerError::new(Box::new(err)))
+impl From<std::env::VarError> for ApiError {
+    fn from(err: std::env::VarError) -> ApiError {
+        ApiError::InternalError(InternalError::new(Box::new(err)))
     }
 }
 
-impl From<ResourceNotFound> for Error {
-    fn from(err: ResourceNotFound) -> Error {
-        Error::ResourceNotFound(err)
+impl From<ResourceNotFound> for ApiError {
+    fn from(err: ResourceNotFound) -> ApiError {
+        ApiError::ResourceNotFound(err)
     }
 }
 
-impl From<MethodNotAllowed> for Error {
-    fn from(err: MethodNotAllowed) -> Error {
-        Error::MethodNotAllowed(err)
+impl From<MethodNotAllowed> for ApiError {
+    fn from(err: MethodNotAllowed) -> ApiError {
+        ApiError::MethodNotAllowed(err)
     }
 }
 
-impl From<MissingHeader> for Error {
-    fn from(err: MissingHeader) -> Error {
-        Error::MissingHeader(err)
+impl From<MissingHeader> for ApiError {
+    fn from(err: MissingHeader) -> ApiError {
+        ApiError::MissingHeader(err)
     }
 }
 
-impl From<MalformedHeader> for Error {
-    fn from(err: MalformedHeader) -> Error {
-        Error::MalformedHeader(err)
+impl From<MalformedHeader> for ApiError {
+    fn from(err: MalformedHeader) -> ApiError {
+        ApiError::MalformedHeader(err)
     }
 }
 
-impl From<UnsupportedContentType> for Error {
-    fn from(err: UnsupportedContentType) -> Error {
-        Error::UnsupportedContentType(err)
+impl From<UnsupportedMediaType> for ApiError {
+    fn from(err: UnsupportedMediaType) -> ApiError {
+        ApiError::UnsupportedMediaType(err)
     }
 }
 
-impl From<InvalidUserAgent> for Error {
-    fn from(err: InvalidUserAgent) -> Error {
-        Error::InvalidUserAgent(err)
+impl From<UnsupportedUserAgent> for ApiError {
+    fn from(err: UnsupportedUserAgent) -> ApiError {
+        ApiError::UnsupportedUserAgent(err)
     }
 }
 
-impl From<SignatureMismatch> for Error {
-    fn from(err: SignatureMismatch) -> Error {
-        Error::SignatureMismatch(err)
+impl From<MismatchedSignature> for ApiError {
+    fn from(err: MismatchedSignature) -> ApiError {
+        ApiError::MismatchedSignature(err)
     }
 }
 
-impl From<JsonRejection> for Error {
-    fn from(source: JsonRejection) -> Error {
-        Error::JsonError(JsonError::new(source))
-    }
-}
-
-impl IntoResponse for Error {
-    fn into_response(self) -> Response {
-        (self.status(), Json(self)).into_response()
+impl From<JsonRejection> for ApiError {
+    fn from(source: JsonRejection) -> ApiError {
+        ApiError::JsonError(JsonError::new(source))
     }
 }
 
 #[derive(Debug, Serialize)]
-pub struct InternalServerError {
+pub struct InternalError {
     #[serde(skip_serializing)]
-    source: Box<dyn std::error::Error>,
+    source: Box<dyn Error>,
 }
 
-impl InternalServerError {
-    pub fn new(source: Box<dyn std::error::Error>) -> Self {
-        InternalServerError { source }
+impl InternalError {
+    pub fn new(source: Box<dyn Error>) -> Self {
+        InternalError { source }
     }
     pub const fn status(&self) -> StatusCode {
         StatusCode::INTERNAL_SERVER_ERROR
     }
 }
 
-impl std::fmt::Display for InternalServerError {
+impl std::fmt::Display for InternalError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.source)
     }
 }
 
-impl std::error::Error for InternalServerError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+impl Error for InternalError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
         Some(self.source.as_ref())
     }
 }
@@ -182,7 +175,7 @@ impl std::fmt::Display for ResourceNotFound {
     }
 }
 
-impl std::error::Error for ResourceNotFound {}
+impl Error for ResourceNotFound {}
 
 #[derive(Debug, Serialize)]
 pub struct MethodNotAllowed {
@@ -204,7 +197,7 @@ impl std::fmt::Display for MethodNotAllowed {
     }
 }
 
-impl std::error::Error for MethodNotAllowed {}
+impl Error for MethodNotAllowed {}
 
 #[derive(Debug, Serialize)]
 pub struct MissingHeader {
@@ -226,7 +219,7 @@ impl std::fmt::Display for MissingHeader {
     }
 }
 
-impl std::error::Error for MissingHeader {}
+impl Error for MissingHeader {}
 
 #[derive(Debug, Serialize)]
 pub struct MalformedHeader {
@@ -250,77 +243,77 @@ impl std::fmt::Display for MalformedHeader {
     }
 }
 
-impl std::error::Error for MalformedHeader {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+impl Error for MalformedHeader {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
         Some(&self.source)
     }
 }
 
 #[derive(Debug, Serialize)]
-pub struct UnsupportedContentType {
+pub struct UnsupportedMediaType {
     content_type: String,
 }
 
-impl UnsupportedContentType {
+impl UnsupportedMediaType {
     pub fn new(content_type: String) -> Self {
-        UnsupportedContentType { content_type }
+        UnsupportedMediaType { content_type }
     }
     pub const fn status(&self) -> StatusCode {
-        StatusCode::BAD_REQUEST
+        StatusCode::UNSUPPORTED_MEDIA_TYPE
     }
 }
 
-impl std::fmt::Display for UnsupportedContentType {
+impl std::fmt::Display for UnsupportedMediaType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.content_type)
     }
 }
 
-impl std::error::Error for UnsupportedContentType {}
+impl Error for UnsupportedMediaType {}
 
 #[derive(Debug, Serialize)]
-pub struct InvalidUserAgent {
+pub struct UnsupportedUserAgent {
     user_agent: String,
 }
 
-impl InvalidUserAgent {
+impl UnsupportedUserAgent {
     pub fn new(user_agent: String) -> Self {
-        InvalidUserAgent { user_agent }
+        UnsupportedUserAgent { user_agent }
     }
     pub const fn status(&self) -> StatusCode {
         StatusCode::BAD_REQUEST
     }
 }
 
-impl std::fmt::Display for InvalidUserAgent {
+impl std::fmt::Display for UnsupportedUserAgent {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.user_agent)
     }
 }
 
-impl std::error::Error for InvalidUserAgent {}
+impl Error for UnsupportedUserAgent {}
 
 #[derive(Debug, Serialize)]
-pub struct SignatureMismatch {
+pub struct MismatchedSignature {
     signature: String,
 }
 
-impl SignatureMismatch {
+impl MismatchedSignature {
     pub fn new(signature: String) -> Self {
-        SignatureMismatch { signature }
+        MismatchedSignature { signature }
     }
     pub const fn status(&self) -> StatusCode {
         StatusCode::BAD_REQUEST
     }
 }
 
-impl std::fmt::Display for SignatureMismatch {
+impl std::fmt::Display for MismatchedSignature {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.signature)
     }
 }
 
-impl std::error::Error for SignatureMismatch {}
+impl Error for MismatchedSignature {}
 
 #[derive(Debug, Serialize)]
 pub struct JsonError {
@@ -343,8 +336,8 @@ impl std::fmt::Display for JsonError {
     }
 }
 
-impl std::error::Error for JsonError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+impl Error for JsonError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
         Some(&self.source)
     }
 }

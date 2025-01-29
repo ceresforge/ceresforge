@@ -1,6 +1,6 @@
 use crate::api::{
     Result,
-    error::{InvalidUserAgent, SignatureMismatch, UnsupportedContentType},
+    error::{MismatchedSignature, UnsupportedMediaType, UnsupportedUserAgent},
     header_get_required,
 };
 
@@ -129,34 +129,34 @@ fn hex_digest(secret: &str, bytes: &[u8]) -> Result<String> {
 }
 
 fn check_signature(signature: &str, bytes: &[u8]) -> Result<()> {
-    let secret = std::env::var("GITHUB_WEBHOOK_SECRET")?;
+    let secret = std::env::var("FORGEJO_WEBHOOK_SECRET")?;
     let digest = hex_digest(&secret, bytes)?;
     let expected = format!("sha256={}", digest);
     if signature == expected {
         Ok(())
     } else {
-        Err(SignatureMismatch::new(signature.to_string()).into())
+        Err(MismatchedSignature::new(signature.to_string()).into())
     }
 }
 
 async fn webhook(headers: HeaderMap, bytes: Bytes) -> Result<()> {
     let content_type = header_get_required(&headers, "content-type")?;
-    let _hook_id = header_get_required(&headers, "x-github-hook-id")?;
-    let event = header_get_required(&headers, "x-github-event")?;
-    let _delivery = header_get_required(&headers, "x-github-delivery")?;
+    let _hook_id = header_get_required(&headers, "x-forgejo-hook-id")?;
+    let event = header_get_required(&headers, "x-forgejo-event")?;
+    let _delivery = header_get_required(&headers, "x-forgejo-delivery")?;
     let _signature = header_get_required(&headers, "x-hub-signature")?;
-    let signature_256 = header_get_required(&headers, "x-hub-signature-256")?;
+    let signature_256 = header_get_required(&headers, "x-forgejo-signature-256")?;
     let user_agent = header_get_required(&headers, "user-agent")?;
     let _installation_target_type =
-        header_get_required(&headers, "x-github-hook-installation-target-type")?;
+        header_get_required(&headers, "x-forgejo-hook-installation-target-type")?;
     let _installation_target_id =
-        header_get_required(&headers, "x-github-hook-installation-target-id")?;
+        header_get_required(&headers, "x-forgejo-hook-installation-target-id")?;
 
     if content_type != "application/json" {
-        return Err(UnsupportedContentType::new(content_type.to_string()).into());
+        return Err(UnsupportedMediaType::new(content_type.to_string()).into());
     }
     if !user_agent.starts_with("GitHub-Hookshot/") {
-        return Err(InvalidUserAgent::new(user_agent.to_string()).into());
+        return Err(UnsupportedUserAgent::new(user_agent.to_string()).into());
     }
 
     check_signature(signature_256, &bytes)?;
