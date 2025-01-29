@@ -148,7 +148,7 @@ async fn webhook(headers: HeaderMap, bytes: Bytes) -> Result<()> {
     if content_type != "application/json" {
         return Err(UnsupportedMediaType::new(content_type.to_string()).into());
     }
-    if !user_agent.starts_with("GitHub-Hookshot/") {
+    if !user_agent.starts_with("Go-http-client/") {
         return Err(UnsupportedUserAgent::new(user_agent.to_string()).into());
     }
 
