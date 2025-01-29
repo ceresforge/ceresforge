@@ -8,6 +8,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 RUN rustup default nightly
 WORKDIR /package
+COPY frontend ./frontend/
 COPY src ./src/
 COPY Cargo.toml Cargo.lock .
 RUN cargo build --release
