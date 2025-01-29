@@ -2,8 +2,15 @@ use axum::{
     extract::rejection::JsonRejection,
     http::{StatusCode, header::ToStrError},
 };
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 use std::error::Error;
+
+fn error_serialize<S>(err: &impl Error, s: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    format!("{}", err).serialize(s)
+}
 
 #[derive(Debug, Serialize)]
 #[non_exhaustive]
@@ -317,7 +324,7 @@ impl Error for MismatchedSignature {}
 
 #[derive(Debug, Serialize)]
 pub struct JsonError {
-    #[serde(skip_serializing)]
+    #[serde(serialize_with = "error_serialize")]
     source: JsonRejection,
 }
 

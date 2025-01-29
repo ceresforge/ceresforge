@@ -11,40 +11,16 @@ use sha2::Sha256;
 
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
-pub struct Bot {
-    id: i64,
-    login: String,
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Deserialize)]
 struct User {
     id: i64,
-    login: String,
+    username: String,
 }
 
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct Organization {
     id: i64,
-    login: String,
-    description: Option<String>,
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Deserialize)]
-#[serde(tag = "type")]
-enum Owner {
-    User(User),
-    Organization(Organization),
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Deserialize)]
-#[serde(tag = "type")]
-enum Sender {
-    Bot(Bot),
-    User(User),
+    username: String,
 }
 
 #[allow(dead_code)]
@@ -60,11 +36,11 @@ struct Team {
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct Commit {
-    distinct: bool,
+    distinct: Option<bool>,
     id: String,
     message: String,
     timestamp: String,
-    tree_id: String,
+    tree_id: Option<String>,
     url: String,
 }
 
@@ -73,7 +49,7 @@ struct Commit {
 struct Repository {
     name: String,
     full_name: String,
-    owner: Owner,
+    owner: User,
     description: Option<String>,
 }
 
@@ -94,7 +70,7 @@ struct Membership {
     organization: Organization,
     repository: Option<Repository>,
     scope: String,
-    sender: Option<Sender>,
+    sender: Option<User>,
     team: Team,
 }
 
@@ -104,16 +80,16 @@ struct Push {
     after: String,
     base_ref: Option<String>,
     before: String,
-    compare: String,
-    created: bool,
-    deleted: bool,
-    forced: bool,
+    compare_url: String,
+    created: Option<bool>,
+    deleted: Option<bool>,
+    forced: Option<bool>,
     r#ref: String,
     head_commit: Option<Commit>,
     repository: Repository,
-    pusher: Pusher,
+    pusher: User,
     commits: Vec<Commit>,
-    sender: Option<Sender>,
+    sender: Option<User>,
     organization: Option<Organization>,
 }
 
