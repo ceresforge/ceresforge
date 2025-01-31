@@ -17,7 +17,7 @@ impl IntoResponse for ApiError {
     }
 }
 
-pub fn header_get_required<'a>(headers: &'a HeaderMap, key: &'a str) -> Result<&'a str> {
+pub fn header_get_required<'a>(headers: &'a HeaderMap, key: &str) -> Result<&'a str> {
     match headers.get(key) {
         Some(val) => match val.to_str() {
             Ok(s) => Ok(s),
