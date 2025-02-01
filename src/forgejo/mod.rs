@@ -1,6 +1,8 @@
 use crate::api::{
     Result,
-    error::{MismatchedSignature, UnsupportedMediaType, UnsupportedWebhookEvent, UnsupportedUserAgent},
+    error::{
+        MismatchedSignature, UnsupportedMediaType, UnsupportedUserAgent, UnsupportedWebhookEvent,
+    },
     header_get_required,
 };
 
@@ -107,8 +109,7 @@ fn hex_digest(secret: &str, bytes: &[u8]) -> Result<String> {
 fn check_content_type(content_type: &str) -> Result<()> {
     if content_type == "application/json" {
         Ok(())
-    }
-    else {
+    } else {
         Err(UnsupportedMediaType::new(content_type.to_string()).into())
     }
 }
@@ -116,8 +117,7 @@ fn check_content_type(content_type: &str) -> Result<()> {
 fn check_user_agent(user_agent: &str) -> Result<()> {
     if user_agent.starts_with("Go-http-client/") {
         Ok(())
-    }
-    else {
+    } else {
         Err(UnsupportedUserAgent::new(user_agent.to_string()).into())
     }
 }
@@ -150,9 +150,7 @@ async fn webhook(headers: HeaderMap, bytes: Bytes) -> Result<()> {
         "membership" => {
             let Json(_membership): Json<Membership> = Json::from_bytes(&bytes)?;
         }
-        _ => {
-            return Err(UnsupportedWebhookEvent::new(event.to_string()).into())
-        },
+        _ => return Err(UnsupportedWebhookEvent::new(event.to_string()).into()),
     }
 
     Ok(())
