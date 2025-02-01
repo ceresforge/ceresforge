@@ -104,6 +104,24 @@ fn hex_digest(secret: &str, bytes: &[u8]) -> Result<String> {
         .join(""))
 }
 
+fn check_content_type(content_type: &str) -> Result<()> {
+    if content_type == "application/json" {
+        Ok(())
+    }
+    else {
+        Err(UnsupportedMediaType::new(content_type.to_string()).into())
+    }
+}
+
+fn check_user_agent(user_agent: &str) -> Result<()> {
+    if user_agent.starts_with("Go-http-client/") {
+        Ok(())
+    }
+    else {
+        Err(UnsupportedUserAgent::new(user_agent.to_string()).into())
+    }
+}
+
 fn check_signature(signature: &str, bytes: &[u8]) -> Result<()> {
     let secret = std::env::var("FORGEJO_WEBHOOK_SECRET")?;
     let expected = hex_digest(&secret, bytes)?;
@@ -121,13 +139,8 @@ async fn webhook(headers: HeaderMap, bytes: Bytes) -> Result<()> {
     let signature = header_get_required(&headers, "x-forgejo-signature")?;
     let user_agent = header_get_required(&headers, "user-agent")?;
 
-    if content_type != "application/json" {
-        return Err(UnsupportedMediaType::new(content_type.to_string()).into());
-    }
-    if !user_agent.starts_with("Go-http-client/") {
-        return Err(UnsupportedUserAgent::new(user_agent.to_string()).into());
-    }
-
+    check_content_type(content_type)?;
+    check_user_agent(user_agent)?;
     check_signature(signature, &bytes)?;
 
     match event {
