@@ -24,6 +24,7 @@ pub enum ApiError {
     UnsupportedMediaType(UnsupportedMediaType),
     UnsupportedUserAgent(UnsupportedUserAgent),
     MismatchedSignature(MismatchedSignature),
+    UnsupportedWebhookEvent(UnsupportedWebhookEvent),
     JsonError(JsonError),
 }
 
@@ -38,6 +39,7 @@ impl ApiError {
             ApiError::UnsupportedMediaType(err) => err.status(),
             ApiError::UnsupportedUserAgent(err) => err.status(),
             ApiError::MismatchedSignature(err) => err.status(),
+            ApiError::UnsupportedWebhookEvent(err) => err.status(),
             ApiError::JsonError(err) => err.status(),
         }
     }
@@ -54,6 +56,7 @@ impl std::fmt::Display for ApiError {
             ApiError::UnsupportedMediaType(err) => write!(f, "{err}"),
             ApiError::UnsupportedUserAgent(err) => write!(f, "{err}"),
             ApiError::MismatchedSignature(err) => write!(f, "{err}"),
+            ApiError::UnsupportedWebhookEvent(err) => write!(f, "{err}"),
             ApiError::JsonError(err) => write!(f, "{err}"),
         }
     }
@@ -70,6 +73,7 @@ impl Error for ApiError {
             ApiError::UnsupportedMediaType(err) => err.source(),
             ApiError::UnsupportedUserAgent(err) => err.source(),
             ApiError::MismatchedSignature(err) => err.source(),
+            ApiError::UnsupportedWebhookEvent(err) => err.source(),
             ApiError::JsonError(err) => err.source(),
         }
     }
@@ -126,6 +130,12 @@ impl From<UnsupportedUserAgent> for ApiError {
 impl From<MismatchedSignature> for ApiError {
     fn from(err: MismatchedSignature) -> ApiError {
         ApiError::MismatchedSignature(err)
+    }
+}
+
+impl From<UnsupportedWebhookEvent> for ApiError {
+    fn from(err: UnsupportedWebhookEvent) -> ApiError {
+        ApiError::UnsupportedWebhookEvent(err)
     }
 }
 
@@ -321,6 +331,28 @@ impl std::fmt::Display for MismatchedSignature {
 }
 
 impl Error for MismatchedSignature {}
+
+#[derive(Debug, Serialize)]
+pub struct UnsupportedWebhookEvent {
+    event: String,
+}
+
+impl UnsupportedWebhookEvent {
+    pub fn new(event: String) -> Self {
+        UnsupportedWebhookEvent { event }
+    }
+    pub const fn status(&self) -> StatusCode {
+        StatusCode::BAD_REQUEST
+    }
+}
+
+impl std::fmt::Display for UnsupportedWebhookEvent {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.event)
+    }
+}
+
+impl Error for UnsupportedWebhookEvent {}
 
 #[derive(Debug, Serialize)]
 pub struct JsonError {

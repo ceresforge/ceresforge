@@ -1,6 +1,6 @@
 use crate::api::{
     Result,
-    error::{MismatchedSignature, UnsupportedMediaType, UnsupportedUserAgent},
+    error::{MismatchedSignature, UnsupportedMediaType, UnsupportedWebhookEvent, UnsupportedUserAgent},
     header_get_required,
 };
 
@@ -150,7 +150,9 @@ async fn webhook(headers: HeaderMap, bytes: Bytes) -> Result<()> {
         "membership" => {
             let Json(_membership): Json<Membership> = Json::from_bytes(&bytes)?;
         }
-        _ => (),
+        _ => {
+            return Err(UnsupportedWebhookEvent::new(event.to_string()).into())
+        },
     }
 
     Ok(())
