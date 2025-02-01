@@ -66,7 +66,7 @@ mod tests {
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(
             body,
-            json!({"type": "MissingHeader", "key": "x-forgejo-hook-id"})
+            json!({"type": "MissingHeader", "key": "x-forgejo-event"})
         );
     }
 
