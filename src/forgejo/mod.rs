@@ -132,7 +132,7 @@ fn check_signature(signature: &str, bytes: &[u8]) -> Result<()> {
     }
 }
 
-async fn webhook(headers: HeaderMap, bytes: Bytes) -> Result<()> {
+async fn webhook_handler(headers: HeaderMap, bytes: Bytes) -> Result<()> {
     let content_type = header_get_required(&headers, "content-type")?;
     let event = header_get_required(&headers, "x-forgejo-event")?;
     let _delivery = header_get_required(&headers, "x-forgejo-delivery")?;
@@ -157,5 +157,5 @@ async fn webhook(headers: HeaderMap, bytes: Bytes) -> Result<()> {
 }
 
 pub fn routes() -> Router {
-    Router::new().route("/webhook", post(webhook))
+    Router::new().route("/webhook", post(webhook_handler))
 }
