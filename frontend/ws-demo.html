@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Demo</title>
+    <link rel="preconnect" href="https://rsms.me/">
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+    <link rel="stylesheet" href="/main.css">
+    <style>
+        body {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        button {
+            border-radius: 5px;
+            padding: 5px;
+            color: white;
+            background-color: #2563eb;
+            border-color: #2563eb;
+        }
+        input {
+            border-radius: 5px;
+            padding: 5px;
+        }
+        #status {
+            padding: 10px;
+            margin-top: 13px;
+            margin-bottom: 13px;
+            border-radius: 5px;
+        }
+        .connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        #messages {
+            margin-top: 13px;
+            height: 300px;
+            max-width: 800px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+        .message {
+            margin: 5px 0;
+            padding: 8px;
+            border-radius: 5px;
+        }
+        .received {
+            background-color: #cfe2ff;
+        }
+        .sent {
+            background-color: #e9ecef;
+            text-align: right;
+        }
+        @media screen and (prefers-color-scheme: dark) {
+            #messages {
+                border: 1px solid #333;
+            }
+            .received {
+                background-color: #1e3a4c;
+            }
+            .sent {
+                background-color: #333;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Demo</h1>
+    
+    <div id="status" class="disconnected">Disconnected</div>
+    
+    <button onclick="connectWebSocket()">Reconnect</button>
+    
+    <div id="messages"></div>
+    
+    <form onsubmit="sendMessage(event)">
+        <input type="text" id="messageInput" placeholder="Type your message..." autocomplete="off">
+        <button type="submit">Send</button>
+    </form>
+
+    <script>
+        let socket;
+        const statusElement = document.getElementById('status');
+        const messagesElement = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+
+        function connectWebSocket() {
+            if (socket) {
+                socket.close();
+            }
+
+            socket = new WebSocket('/websocket');
+
+            socket.addEventListener('open', (event) => {
+                statusElement.textContent = 'Connected';
+                statusElement.className = 'connected';
+            });
+
+            socket.addEventListener('message', (event) => {
+                addMessage(event.data, 'received');
+            });
+
+            socket.addEventListener('close', (event) => {
+                statusElement.textContent = 'Disconnected';
+                statusElement.className = 'disconnected';
+            });
+
+            socket.addEventListener('error', (event) => {
+                console.error('WebSocket error:', event);
+                statusElement.textContent = 'Connection Error';
+                statusElement.className = 'disconnected';
+            });
+        }
+
+        function sendMessage(event) {
+            event.preventDefault();
+            const message = messageInput.value.trim();
+            
+            if (message && socket.readyState === WebSocket.OPEN) {
+                socket.send(message);
+                addMessage(message, 'sent');
+                messageInput.value = '';
+            }
+        }
+
+        function addMessage(text, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = text;
+            messagesElement.appendChild(messageDiv);
+            
+            messagesElement.scrollTop = messagesElement.scrollHeight;
+        }
+
+        connectWebSocket();
+    </script>
+</body>
+</html>

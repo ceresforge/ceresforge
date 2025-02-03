@@ -1,7 +1,13 @@
 mod api;
 mod forgejo;
+mod ws;
 
-use axum::{Router, response::Html, routing::get};
+use axum::{
+    Router,
+    http::header,
+    response::{Html, IntoResponse},
+    routing::{any, get},
+};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -9,9 +15,23 @@ async fn home() -> Html<&'static str> {
     Html(include_str!("../frontend/home.html"))
 }
 
+async fn ws_demo() -> Html<&'static str> {
+    Html(include_str!("../frontend/ws-demo.html"))
+}
+
+async fn main_css() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "text/css")],
+        include_str!("../frontend/main.css"),
+    )
+}
+
 fn app() -> Router {
     Router::new()
         .route("/", get(home))
+        .route("/websocket", any(crate::ws::websocket_handler))
+        .route("/ws-demo", get(ws_demo))
+        .route("/main.css", get(main_css))
         .nest_service("/api", api::routes())
         .layer(TraceLayer::new_for_http())
 }

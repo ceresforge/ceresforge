@@ -1,0 +1,28 @@
+:root {
+  font-family: Inter, sans-serif;
+  font-feature-settings: 'liga' 1, 'calt' 1;
+}
+@supports (font-variation-settings: normal) {
+  :root { font-family: InterVariable, sans-serif; }
+}
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+h1 {
+  font-weight: 900;
+  font-size: 32px;
+}
+body {
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  background-color: white;
+  color: black;
+}
+@media screen and (prefers-color-scheme: dark) {
+  body {
+    background-color: black;
+    color: white;
+  }
+}
