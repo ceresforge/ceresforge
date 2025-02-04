@@ -1,5 +1,5 @@
 use crate::api::{
-    Result,
+    ApiResult,
     error::{
         MismatchedSignature, UnsupportedMediaType, UnsupportedUserAgent, UnsupportedWebhookEvent,
     },
@@ -95,7 +95,7 @@ struct Push {
     organization: Option<Organization>,
 }
 
-fn hex_digest(secret: &str, bytes: &[u8]) -> Result<String> {
+fn hex_digest(secret: &str, bytes: &[u8]) -> ApiResult<String> {
     let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes())?;
     mac.update(bytes);
     let bytes = mac.finalize().into_bytes();
@@ -106,7 +106,7 @@ fn hex_digest(secret: &str, bytes: &[u8]) -> Result<String> {
         .join(""))
 }
 
-fn check_content_type(content_type: &str) -> Result<()> {
+fn check_content_type(content_type: &str) -> ApiResult<()> {
     if content_type == "application/json" {
         Ok(())
     } else {
@@ -114,7 +114,7 @@ fn check_content_type(content_type: &str) -> Result<()> {
     }
 }
 
-fn check_user_agent(user_agent: &str) -> Result<()> {
+fn check_user_agent(user_agent: &str) -> ApiResult<()> {
     if user_agent.starts_with("Go-http-client/") {
         Ok(())
     } else {
@@ -122,7 +122,7 @@ fn check_user_agent(user_agent: &str) -> Result<()> {
     }
 }
 
-fn check_signature(signature: &str, bytes: &[u8]) -> Result<()> {
+fn check_signature(signature: &str, bytes: &[u8]) -> ApiResult<()> {
     let secret = std::env::var("FORGEJO_WEBHOOK_SECRET")?;
     let expected = hex_digest(&secret, bytes)?;
     if signature == expected {
@@ -132,7 +132,7 @@ fn check_signature(signature: &str, bytes: &[u8]) -> Result<()> {
     }
 }
 
-async fn webhook_handler(headers: HeaderMap, bytes: Bytes) -> Result<()> {
+async fn webhook_handler(headers: HeaderMap, bytes: Bytes) -> ApiResult<()> {
     let content_type = header_get_required(&headers, "content-type")?;
     let event = header_get_required(&headers, "x-forgejo-event")?;
     let _delivery = header_get_required(&headers, "x-forgejo-delivery")?;
