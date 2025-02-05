@@ -19,6 +19,20 @@ async fn ws_demo() -> Html<&'static str> {
     Html(include_str!("../frontend/ws-demo.html"))
 }
 
+async fn ws_demo_css() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "text/css")],
+        include_str!("../frontend/ws-demo.css"),
+    )
+}
+
+async fn ws_demo_js() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "text/javascript")],
+        include_str!("../frontend/ws-demo.js"),
+    )
+}
+
 async fn main_css() -> impl IntoResponse {
     (
         [(header::CONTENT_TYPE, "text/css")],
@@ -31,6 +45,8 @@ fn app() -> Router {
         .route("/", get(home))
         .route("/websocket", any(crate::ws::websocket_handler))
         .route("/ws-demo", get(ws_demo))
+        .route("/ws-demo.css", get(ws_demo_css))
+        .route("/ws-demo.js", get(ws_demo_js))
         .route("/main.css", get(main_css))
         .nest_service("/api", api::routes())
         .layer(TraceLayer::new_for_http())
