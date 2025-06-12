@@ -9,7 +9,7 @@ function connectWebSocket() {
         socket.close();
     }
 
-    socket = new WebSocket('/websocket');
+    socket = new WebSocket('/api/ws');
 
     socket.addEventListener('open', (event) => {
         statusElement.textContent = 'Connected';

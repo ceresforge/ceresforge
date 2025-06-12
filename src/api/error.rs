@@ -91,6 +91,12 @@ impl From<std::env::VarError> for ApiError {
     }
 }
 
+impl From<axum::http::Error> for ApiError {
+    fn from(err: axum::http::Error) -> ApiError {
+        ApiError::InternalError(InternalError::new(Box::new(err)))
+    }
+}
+
 impl From<ResourceNotFound> for ApiError {
     fn from(err: ResourceNotFound) -> ApiError {
         ApiError::ResourceNotFound(err)

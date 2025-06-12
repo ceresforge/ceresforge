@@ -1,15 +1,31 @@
 mod api;
+mod auth;
 mod forgejo;
-mod ws;
+mod webfinger;
 
 use axum::{
-    Router,
+    Extension, Router,
     http::header,
     response::{Html, IntoResponse},
-    routing::{any, get},
+    routing::get,
 };
+use clap::{Parser, Subcommand};
+use sqlx::postgres::PgPoolOptions;
+use std::time::Duration;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+#[derive(Debug, Parser)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Debug, Subcommand)]
+enum Commands {
+    Migrate,
+    Server,
+}
 
 async fn home() -> Html<&'static str> {
     Html(include_str!("../frontend/home.html"))
@@ -43,17 +59,27 @@ async fn main_css() -> impl IntoResponse {
 fn app() -> Router {
     Router::new()
         .route("/", get(home))
-        .route("/websocket", any(crate::ws::websocket_handler))
         .route("/ws-demo", get(ws_demo))
         .route("/ws-demo.css", get(ws_demo_css))
         .route("/ws-demo.js", get(ws_demo_js))
         .route("/main.css", get(main_css))
+        .route("/.well-known", get(crate::webfinger::handler))
+        .nest("/auth", auth::routes())
         .nest_service("/api", api::routes())
-        .layer(TraceLayer::new_for_http())
 }
 
-#[tokio::main]
-async fn main() {
+async fn migrate() {
+    let pool = PgPoolOptions::new()
+        .acquire_timeout(Duration::from_secs(1))
+        .max_connections(1)
+        .connect(&std::env::var("DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+
+    sqlx::migrate!().run(&pool).await.unwrap()
+}
+
+async fn server() {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
@@ -63,10 +89,37 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
+    let pool = PgPoolOptions::new()
+        .acquire_timeout(Duration::from_secs(1))
+        .max_connections(10)
+        .connect(&std::env::var("DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+
     let addr = std::net::SocketAddr::from(([0, 0, 0, 0], 8080));
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
-    axum::serve(listener, app()).await.unwrap();
+
+    let app = app()
+        .layer(TraceLayer::new_for_http())
+        .layer(Extension(pool));
+    axum::serve(listener, app).await.unwrap();
+}
+
+fn main() {
+    let args = Cli::parse();
+    match args.command {
+        Commands::Migrate => tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(migrate()),
+        Commands::Server => tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(server()),
+    }
 }
 
 #[cfg(test)]

@@ -132,6 +132,19 @@ fn check_signature(signature: &str, bytes: &[u8]) -> ApiResult<()> {
     }
 }
 
+fn handle_event(event: &str, bytes: &Bytes) -> ApiResult<()> {
+    match event {
+        "push" => {
+            let Json(_push): Json<Push> = Json::from_bytes(&bytes)?;
+        }
+        "membership" => {
+            let Json(_membership): Json<Membership> = Json::from_bytes(&bytes)?;
+        }
+        _ => return Err(UnsupportedWebhookEvent::new(event.to_string()).into()),
+    }
+    Ok(())
+}
+
 async fn webhook_handler(headers: HeaderMap, bytes: Bytes) -> ApiResult<()> {
     let content_type = header_get_required(&headers, "content-type")?;
     let event = header_get_required(&headers, "x-forgejo-event")?;
@@ -143,17 +156,7 @@ async fn webhook_handler(headers: HeaderMap, bytes: Bytes) -> ApiResult<()> {
     check_user_agent(user_agent)?;
     check_signature(signature, &bytes)?;
 
-    match event {
-        "push" => {
-            let Json(_push): Json<Push> = Json::from_bytes(&bytes)?;
-        }
-        "membership" => {
-            let Json(_membership): Json<Membership> = Json::from_bytes(&bytes)?;
-        }
-        _ => return Err(UnsupportedWebhookEvent::new(event.to_string()).into()),
-    }
-
-    Ok(())
+    handle_event(event, &bytes)
 }
 
 pub fn routes() -> Router {

@@ -15,4 +15,4 @@ RUN cargo build --release
 
 FROM $CONTAINER_IMAGE
 COPY --from=build /package/target/release/ceresforge /usr/local/bin/ceresforge
-CMD ["ceresforge"]
+CMD ["ceresforge", "server"]

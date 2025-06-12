@@ -1,4 +1,5 @@
 pub mod error;
+mod ws;
 
 pub use crate::api::error::ApiError;
 pub type ApiResult<T> = Result<T, ApiError>;
@@ -9,6 +10,7 @@ use axum::{
     extract::OriginalUri,
     http::{HeaderMap, Method},
     response::{IntoResponse, Response},
+    routing::any,
 };
 
 impl IntoResponse for ApiError {
@@ -37,6 +39,7 @@ async fn fallback(uri: OriginalUri) -> ApiError {
 
 pub fn routes() -> Router {
     Router::new()
+        .route("/ws", any(ws::handler))
         .nest("/forgejo", crate::forgejo::routes())
         .method_not_allowed_fallback(method_not_allowed_fallback)
         .fallback(fallback)
