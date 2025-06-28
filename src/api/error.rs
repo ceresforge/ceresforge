@@ -13,11 +13,10 @@ where
 }
 
 #[derive(Debug, Serialize)]
-#[non_exhaustive]
 #[serde(tag = "type")]
 pub enum ApiError {
-    InternalError(InternalError),
-    ResourceNotFound(ResourceNotFound),
+    InternalServerError(InternalServerError),
+    NotFound(NotFound),
     MethodNotAllowed(MethodNotAllowed),
     MissingHeader(MissingHeader),
     MalformedHeader(MalformedHeader),
@@ -31,8 +30,8 @@ pub enum ApiError {
 impl ApiError {
     pub fn status(&self) -> StatusCode {
         match self {
-            ApiError::InternalError(err) => err.status(),
-            ApiError::ResourceNotFound(err) => err.status(),
+            ApiError::InternalServerError(err) => err.status(),
+            ApiError::NotFound(err) => err.status(),
             ApiError::MethodNotAllowed(err) => err.status(),
             ApiError::MissingHeader(err) => err.status(),
             ApiError::MalformedHeader(err) => err.status(),
@@ -48,8 +47,8 @@ impl ApiError {
 impl std::fmt::Display for ApiError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         match self {
-            ApiError::InternalError(err) => write!(f, "{err}"),
-            ApiError::ResourceNotFound(err) => write!(f, "{err}"),
+            ApiError::InternalServerError(err) => write!(f, "{err}"),
+            ApiError::NotFound(err) => write!(f, "{err}"),
             ApiError::MethodNotAllowed(err) => write!(f, "{err}"),
             ApiError::MissingHeader(err) => write!(f, "{err}"),
             ApiError::MalformedHeader(err) => write!(f, "{err}"),
@@ -65,8 +64,8 @@ impl std::fmt::Display for ApiError {
 impl Error for ApiError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            ApiError::InternalError(err) => err.source(),
-            ApiError::ResourceNotFound(err) => err.source(),
+            ApiError::InternalServerError(err) => err.source(),
+            ApiError::NotFound(err) => err.source(),
             ApiError::MethodNotAllowed(err) => err.source(),
             ApiError::MissingHeader(err) => err.source(),
             ApiError::MalformedHeader(err) => err.source(),
@@ -81,25 +80,25 @@ impl Error for ApiError {
 
 impl From<hmac::digest::InvalidLength> for ApiError {
     fn from(err: hmac::digest::InvalidLength) -> ApiError {
-        ApiError::InternalError(InternalError::new(Box::new(err)))
+        ApiError::InternalServerError(InternalServerError::new(Box::new(err)))
     }
 }
 
 impl From<std::env::VarError> for ApiError {
     fn from(err: std::env::VarError) -> ApiError {
-        ApiError::InternalError(InternalError::new(Box::new(err)))
+        ApiError::InternalServerError(InternalServerError::new(Box::new(err)))
     }
 }
 
 impl From<axum::http::Error> for ApiError {
     fn from(err: axum::http::Error) -> ApiError {
-        ApiError::InternalError(InternalError::new(Box::new(err)))
+        ApiError::InternalServerError(InternalServerError::new(Box::new(err)))
     }
 }
 
-impl From<ResourceNotFound> for ApiError {
-    fn from(err: ResourceNotFound) -> ApiError {
-        ApiError::ResourceNotFound(err)
+impl From<NotFound> for ApiError {
+    fn from(err: NotFound) -> ApiError {
+        ApiError::NotFound(err)
     }
 }
 
@@ -152,53 +151,53 @@ impl From<JsonRejection> for ApiError {
 }
 
 #[derive(Debug, Serialize)]
-pub struct InternalError {
+pub struct InternalServerError {
     #[serde(skip_serializing)]
     source: Box<dyn Error>,
 }
 
-impl InternalError {
+impl InternalServerError {
     pub fn new(source: Box<dyn Error>) -> Self {
-        InternalError { source }
+        InternalServerError { source }
     }
     pub const fn status(&self) -> StatusCode {
         StatusCode::INTERNAL_SERVER_ERROR
     }
 }
 
-impl std::fmt::Display for InternalError {
+impl std::fmt::Display for InternalServerError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.source)
     }
 }
 
-impl Error for InternalError {
+impl Error for InternalServerError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         Some(self.source.as_ref())
     }
 }
 
 #[derive(Debug, Serialize)]
-pub struct ResourceNotFound {
+pub struct NotFound {
     uri: String,
 }
 
-impl ResourceNotFound {
+impl NotFound {
     pub fn new(uri: String) -> Self {
-        ResourceNotFound { uri }
+        NotFound { uri }
     }
     pub const fn status(&self) -> StatusCode {
         StatusCode::NOT_FOUND
     }
 }
 
-impl std::fmt::Display for ResourceNotFound {
+impl std::fmt::Display for NotFound {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.uri)
     }
 }
 
-impl Error for ResourceNotFound {}
+impl Error for NotFound {}
 
 #[derive(Debug, Serialize)]
 pub struct MethodNotAllowed {

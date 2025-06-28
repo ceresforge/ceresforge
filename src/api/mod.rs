@@ -4,7 +4,7 @@ mod ws;
 pub use crate::api::error::ApiError;
 pub type ApiResult<T> = Result<T, ApiError>;
 
-use crate::api::error::{MalformedHeader, MethodNotAllowed, MissingHeader, ResourceNotFound};
+use crate::api::error::{MalformedHeader, MethodNotAllowed, MissingHeader, NotFound};
 use axum::{
     Json, Router,
     extract::OriginalUri,
@@ -34,7 +34,7 @@ async fn method_not_allowed_fallback(method: Method) -> ApiError {
 }
 
 async fn fallback(uri: OriginalUri) -> ApiError {
-    ResourceNotFound::new(uri.to_string()).into()
+    NotFound::new(uri.to_string()).into()
 }
 
 pub fn routes() -> Router {

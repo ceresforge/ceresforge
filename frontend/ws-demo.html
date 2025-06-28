@@ -4,9 +4,7 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>WebSocket Demo</title>
-        <link rel="preconnect" href="https://rsms.me/">
-        <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
-        <link rel="stylesheet" href="/main.css">
+        <link rel="stylesheet" href="/main-0.0.1.css">
         <link rel="stylesheet" href="/ws-demo.css">
         <script src="/ws-demo.js" defer></script>
     </head>
@@ -15,11 +13,11 @@
 
         <div id="status" class="disconnected">Disconnected</div>
 
-        <button onclick="connectWebSocket()">Reconnect</button>
+        <button id="reconnect">Reconnect</button>
 
         <div id="messages"></div>
 
-        <form onsubmit="sendMessage(event)">
+        <form id="messageForm">
             <input type="text" id="messageInput" placeholder="Type your message..." autocomplete="off">
             <button type="submit">Send</button>
         </form>

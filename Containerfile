@@ -6,11 +6,14 @@ RUN apt-get update \
         build-essential \
         rustup \
     && rm -rf /var/lib/apt/lists/*
-RUN rustup default nightly
+RUN rustup default stable
 WORKDIR /package
+COPY .sqlx ./.sqlx/
+COPY migrations ./migrations/
 COPY frontend ./frontend/
 COPY src ./src/
-COPY Cargo.toml Cargo.lock .
+COPY Cargo.toml Cargo.lock build.rs .
+ENV SQLX_OFFLINE="true"
 RUN cargo build --release
 
 FROM $CONTAINER_IMAGE

@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                            UPDATE auth_saml_credentials\n                            SET attributes = $1, updated_at = now()\n                            WHERE user_id = $2\n                                AND provider_id = $3\n                                AND name_id = $4\n                            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Jsonb",
+        "Int8",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fa6a1ecbc2574da721d43daac64eefb2f92242192d3905ae957c79b5b5e5ec9a"
+}

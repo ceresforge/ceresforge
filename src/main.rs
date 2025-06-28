@@ -1,34 +1,57 @@
 mod api;
 mod auth;
+mod extract;
 mod forgejo;
+mod frontend;
+mod record;
 mod webfinger;
 
 use axum::{
-    Extension, Router,
-    http::header,
-    response::{Html, IntoResponse},
+    Router,
+    extract::{FromRef, OriginalUri, State},
+    http::{StatusCode, header},
+    response::{Html, IntoResponse, Response},
     routing::get,
 };
+use axum_extra::extract::cookie::Key;
 use clap::{Parser, Subcommand};
-use sqlx::postgres::PgPoolOptions;
+use sqlx::postgres::{PgPool, PgPoolOptions};
+use std::io::{Write, stdin, stdout};
 use std::time::Duration;
+use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-#[derive(Debug, Parser)]
-struct Cli {
+use argon2::{
+    Argon2,
+    password_hash::{PasswordHasher, SaltString, rand_core::OsRng},
+};
+
+const CSS_PATH: &str = "/ceresforge-0.0.2-dev.css";
+
+#[derive(Debug, clap::Parser)]
+struct Args {
     #[command(subcommand)]
-    command: Commands,
+    command: Command,
 }
 
 #[derive(Debug, Subcommand)]
-enum Commands {
+enum Command {
+    CreateAdmin,
     Migrate,
     Server,
 }
 
-async fn home() -> Html<&'static str> {
-    Html(include_str!("../frontend/home.html"))
+#[derive(Clone)]
+struct AppState {
+    pool: PgPool,
+    key: Key,
+}
+
+impl FromRef<AppState> for Key {
+    fn from_ref(state: &AppState) -> Self {
+        state.key.clone()
+    }
 }
 
 async fn ws_demo() -> Html<&'static str> {
@@ -49,23 +72,325 @@ async fn ws_demo_js() -> impl IntoResponse {
     )
 }
 
-async fn main_css() -> impl IntoResponse {
+async fn css() -> impl IntoResponse {
     (
-        [(header::CONTENT_TYPE, "text/css")],
-        include_str!("../frontend/main.css"),
+        [
+            (header::CONTENT_TYPE, "text/css"),
+            (header::CACHE_CONTROL, "max-age=31536000"),
+        ],
+        include_str!("../frontend/ceresforge.css"),
     )
 }
 
-fn app() -> Router {
+async fn inter_normal() -> impl IntoResponse {
+    (
+        [
+            (header::CONTENT_TYPE, "font/woff2"),
+            (header::CACHE_CONTROL, "max-age=31536000"),
+        ],
+        include_bytes!("../frontend/inter-normal-4.1.woff2"),
+    )
+}
+
+async fn inter_italic() -> impl IntoResponse {
+    (
+        [
+            (header::CONTENT_TYPE, "font/woff2"),
+            (header::CACHE_CONTROL, "max-age=31536000"),
+        ],
+        include_bytes!("../frontend/inter-italic-4.1.woff2"),
+    )
+}
+
+use maud::{DOCTYPE, Markup, html};
+
+use crate::{frontend::FrontendResult, record::User};
+
+pub fn base(title: &str, description: &str, body: Markup) -> Markup {
+    html! {
+        (DOCTYPE)
+        html lang="en" {
+            head {
+                title {
+                    (title)
+                }
+                meta name="color-scheme" content="light dark";
+                meta name="description" content=(description);
+                meta name="viewport" content="width=device-width, initial-scale=1";
+                link rel="stylesheet" href=(CSS_PATH);
+            }
+            body {
+                (body)
+            }
+        }
+    }
+}
+
+fn plain_fullscreen(title: &str, description: &str, status_code: StatusCode) -> impl IntoResponse {
+    (
+        status_code,
+        html! {
+            (base(title, description, html! {
+                div .full-screen {
+                    h1 {
+                        (title)
+                    }
+                    p {
+                        (description)
+                    }
+                }
+            }))
+        },
+    )
+}
+
+fn plain_400() -> Response {
+    plain_fullscreen("400", "Bad Request.", StatusCode::BAD_REQUEST).into_response()
+}
+
+fn plain_401() -> Response {
+    plain_fullscreen("401", "Unauthorized.", StatusCode::UNAUTHORIZED).into_response()
+}
+
+fn plain_403() -> Response {
+    plain_fullscreen("403", "Forbidden.", StatusCode::FORBIDDEN).into_response()
+}
+
+fn plain_404() -> Response {
+    plain_fullscreen("404", "Not Found.", StatusCode::NOT_FOUND).into_response()
+}
+
+fn plain_405() -> Response {
+    plain_fullscreen("405", "Method Not Allowed.", StatusCode::METHOD_NOT_ALLOWED).into_response()
+}
+
+async fn method_not_allowed_fallback() -> impl IntoResponse {
+    plain_405()
+}
+
+async fn fallback() -> impl IntoResponse {
+    plain_404()
+}
+
+async fn home(State(state): State<AppState>, user: Option<User>) -> FrontendResult<Response> {
+    let pool = &state.pool;
+    let providers = sqlx::query_as!(
+        crate::record::SamlProvider,
+        "SELECT * FROM auth_saml_providers"
+    )
+    .fetch_all(pool)
+    .await?;
+
+    let title = "CeresForge";
+    let description = "A web platform for learning, creating, and testing software.";
+    let body = html! {
+        div .full-screen {
+            h1 {
+                (title)
+            }
+            p {
+                (description)
+            }
+            div .flex-columns {
+                @if user.is_none() {
+                    a .button .center-fill href="/auth/local/login" {
+                        "Log in"
+                    }
+                    @for provider in &providers {
+                        a .button .button-blue .center-fill href={"/auth/saml/login/" (provider.slug)} {
+                            "Log in with " (provider.name)
+                        }
+                    }
+                }
+                @else {
+                    a .button .center-fill href="/auth/logout" {
+                        "Log out"
+                    }
+                    @for provider in &providers {
+                        a .button .button-blue .center-fill href={"/auth/saml/connect/" (provider.slug)} {
+                            "Connect with " (provider.name)
+                        }
+                    }
+                }
+            }
+        }
+    };
+    Ok(html! {
+        (base(title, description, body))
+    }
+    .into_response())
+}
+
+async fn admin(
+    user: Option<User>,
+    OriginalUri(uri): OriginalUri,
+    axum::extract::State(state): axum::extract::State<AppState>,
+) -> FrontendResult<axum::response::Response> {
+    if user.is_none() {
+        let uri = uri.to_string();
+        let uri = urlencoding::encode(&uri);
+        let uri = format!("/auth/local/login?redirect={}", uri);
+        return Ok(axum::response::Redirect::to(&uri).into_response());
+    }
+    let user = user.unwrap();
+    if !user.is_admin {
+        return Ok(plain_403());
+    }
+    let pool = &state.pool;
+    let users = sqlx::query_as!(User, "SELECT * FROM users")
+        .fetch_all(pool)
+        .await?;
+    let title = "Admin";
+    let description = "Displays administrator information.";
+    let body = html! {
+        div.content {
+            h1 {
+                (title)
+            }
+            p {
+                (description)
+            }
+            table {
+                thead {
+                    tr {
+                        th { "ID" }
+                        th { "Username" }
+                        th { "Admin" }
+                        th { "Email" }
+                        th { "First Name" }
+                        th { "Last Name" }
+                    }
+                }
+                tbody {
+                    @for user in &users {
+                    tr {
+                        td { (user.id) }
+                        td { (user.username) }
+                        td {
+                            @if user.is_admin {
+                                "✅"
+                            }
+                            @else {
+                                "❌"
+                            }
+                        }
+                        td { (user.email) }
+                        td {
+                            @if let Some(first_name) = &user.first_name {
+                                (first_name)
+                            }
+                        }
+                        td {
+                            @if let Some(last_name) = &user.last_name {
+                                (last_name)
+                            }
+                        }
+                    }
+                    }
+                }
+            }
+        }
+    };
+    Ok(html! {
+        (base(title, description, body))
+    }
+    .into_response())
+}
+
+async fn app() -> Router {
+    let pool = PgPoolOptions::new()
+        .acquire_timeout(Duration::from_secs(1))
+        .max_connections(10)
+        .connect(&std::env::var("DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+
+    let key = Key::from(
+        base64::Engine::decode(
+            &base64::prelude::BASE64_STANDARD,
+            std::env::var("COOKIE_KEY").unwrap(),
+        )
+        .unwrap()
+        .as_slice(),
+    );
+
+    let state = AppState { pool, key };
+
     Router::new()
         .route("/", get(home))
+        .route("/admin", get(admin))
         .route("/ws-demo", get(ws_demo))
         .route("/ws-demo.css", get(ws_demo_css))
         .route("/ws-demo.js", get(ws_demo_js))
-        .route("/main.css", get(main_css))
+        .route(CSS_PATH, get(css))
+        .route("/inter-normal-4.1.woff2", get(inter_normal))
+        .route("/inter-italic-4.1.woff2", get(inter_italic))
         .route("/.well-known", get(crate::webfinger::handler))
         .nest("/auth", auth::routes())
         .nest_service("/api", api::routes())
+        .method_not_allowed_fallback(method_not_allowed_fallback)
+        .fallback(fallback)
+        .with_state(state)
+}
+
+async fn create_admin() {
+    let pool = PgPoolOptions::new()
+        .acquire_timeout(Duration::from_secs(1))
+        .max_connections(1)
+        .connect(&std::env::var("DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+
+    print!("Username: ");
+    stdout().flush().unwrap();
+    let mut username = String::new();
+    stdin().read_line(&mut username).unwrap();
+    let username = username.trim();
+
+    print!("Email: ");
+    stdout().flush().unwrap();
+    let mut email = String::new();
+    stdin().read_line(&mut email).unwrap();
+    let email = email.trim();
+
+    let password = rpassword::prompt_password("Password: ").unwrap();
+    if password.is_empty() || password.len() < 8 {
+        eprintln!("Password is too short.");
+        return;
+    }
+
+    let password_confirmation = rpassword::prompt_password("Confirm Password: ").unwrap();
+    if password != password_confirmation {
+        eprintln!("Passwords do not match.");
+        return;
+    }
+
+    let user_id = sqlx::query!(
+        "INSERT INTO users (username, email, is_admin) VALUES ($1, $2, $3) RETURNING id",
+        username,
+        email,
+        true
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap()
+    .id;
+
+    let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+    let password_hash = argon2
+        .hash_password(password.as_bytes(), &salt)
+        .unwrap()
+        .to_string();
+
+    sqlx::query!(
+        "INSERT INTO auth_local_credentials (user_id, password_hash) VALUES ($1, $2)",
+        user_id,
+        password_hash
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
 }
 
 async fn migrate() {
@@ -79,6 +404,29 @@ async fn migrate() {
     sqlx::migrate!().run(&pool).await.unwrap()
 }
 
+async fn csp_middleware(
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let mut response = next.run(request).await;
+    let headers = response.headers_mut();
+    let content_type = headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok());
+    if let Some(content_type) = content_type {
+        if content_type.starts_with("text/html") {
+            headers.insert(
+                axum::http::header::CONTENT_SECURITY_POLICY,
+                "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+                    .parse()
+                    .unwrap(),
+            );
+        }
+    }
+
+    response
+}
+
 async fn server() {
     tracing_subscriber::registry()
         .with(
@@ -89,32 +437,32 @@ async fn server() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let pool = PgPoolOptions::new()
-        .acquire_timeout(Duration::from_secs(1))
-        .max_connections(10)
-        .connect(&std::env::var("DATABASE_URL").unwrap())
-        .await
-        .unwrap();
-
     let addr = std::net::SocketAddr::from(([0, 0, 0, 0], 8080));
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
 
-    let app = app()
-        .layer(TraceLayer::new_for_http())
-        .layer(Extension(pool));
+    let app = app().await.layer(
+        ServiceBuilder::new()
+            .layer(TraceLayer::new_for_http())
+            .layer(axum::middleware::from_fn(csp_middleware)),
+    );
     axum::serve(listener, app).await.unwrap();
 }
 
 fn main() {
-    let args = Cli::parse();
+    let args = Args::parse();
     match args.command {
-        Commands::Migrate => tokio::runtime::Builder::new_current_thread()
+        Command::CreateAdmin => tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(create_admin()),
+        Command::Migrate => tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .unwrap()
             .block_on(migrate()),
-        Commands::Server => tokio::runtime::Builder::new_multi_thread()
+        Command::Server => tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
             .unwrap()
@@ -135,7 +483,7 @@ mod tests {
 
     #[tokio::test]
     async fn forgejo_webhook() {
-        let app = app();
+        let app = app().await;
         let response = app
             .oneshot(
                 Request::builder()
@@ -161,7 +509,7 @@ mod tests {
 
     #[tokio::test]
     async fn forgejo_webhook_method_not_allowed() {
-        let app = app();
+        let app = app().await;
         let response = app
             .oneshot(
                 Request::builder()
@@ -180,7 +528,7 @@ mod tests {
 
     #[tokio::test]
     async fn not_found() {
-        let app = app();
+        let app = app().await;
         let response = app
             .oneshot(
                 Request::builder()
@@ -191,13 +539,11 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
-        let body = response.into_body().collect().await.unwrap().to_bytes();
-        assert!(body.is_empty());
     }
 
     #[tokio::test]
     async fn api_not_found() {
-        let app = app();
+        let app = app().await;
         let response = app
             .oneshot(Request::builder().uri("/api").body(Body::empty()).unwrap())
             .await
@@ -205,12 +551,12 @@ mod tests {
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
         let body = response.into_body().collect().await.unwrap().to_bytes();
         let body: Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(body, json!({"type": "ResourceNotFound", "uri": "/api"}));
+        assert_eq!(body, json!({"type": "NotFound", "uri": "/api"}));
     }
 
     #[tokio::test]
     async fn api_slash_not_found() {
-        let app = app();
+        let app = app().await;
         let response = app
             .oneshot(Request::builder().uri("/api/").body(Body::empty()).unwrap())
             .await
@@ -218,6 +564,6 @@ mod tests {
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
         let body = response.into_body().collect().await.unwrap().to_bytes();
         let body: Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(body, json!({"type": "ResourceNotFound", "uri": "/api/"}));
+        assert_eq!(body, json!({"type": "NotFound", "uri": "/api/"}));
     }
 }

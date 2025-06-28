@@ -1,8 +1,10 @@
 let socket;
 
+const reconnectElement = document.getElementById('reconnect');
 const statusElement = document.getElementById('status');
 const messagesElement = document.getElementById('messages');
 const messageInputElement = document.getElementById('messageInput');
+const messageFormElement = document.getElementById('messageForm');
 
 function connectWebSocket() {
     if (socket) {
@@ -53,3 +55,5 @@ function addMessage(text, type) {
 }
 
 connectWebSocket();
+reconnectElement.addEventListener("click", connectWebSocket);
+messageFormElement.addEventListener("submit", sendMessage);

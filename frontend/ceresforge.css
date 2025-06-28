@@ -1,0 +1,187 @@
+@font-face {
+  font-family: Inter;
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/inter-normal-4.1.woff2") format("woff2-variations");
+}
+@font-face {
+  font-family: Inter;
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/inter-italic-4.1.woff2") format("woff2-variations");
+}
+:root {
+  font-family: Inter, sans-serif;
+  font-feature-settings: "liga" 1, "calt" 1, "ss01" 1, "ss03" 1, "ss04" 1;
+
+  color-scheme: light dark;
+
+  --black: oklch(0 0 0);
+  --black-lighten: oklch(0.2 0 0);
+  --white: oklch(1 0 0);
+  --white-darken: oklch(0.8 0 0);
+  --grey: oklch(0.5 0 0);
+  --grey-lighten: oklch(0.6 0 0);
+  --grey-darken: oklch(0.4 0 0);
+  --red: oklch(0.5 0.16 30);
+  --red-lighten: oklch(0.6 0.16 30);
+  --red-darken: oklch(0.4 0.16 30);
+  --orange: oklch(0.5 0.09 60);
+  --orange-lighten: oklch(0.6 0.09 60);
+  --orange-darken: oklch(0.4 0.09 60);
+  --yellow: oklch(0.5 0.08 90);
+  --yellow-lighten: oklch(0.6 0.08 90);
+  --yellow-darken: oklch(0.4 0.08 90);
+  --green: oklch(0.5 0.11 150);
+  --green-lighten: oklch(0.6 0.11 150);
+  --green-darken: oklch(0.4 0.11 150);
+  --cyan: oklch(0.5 0.07 225);
+  --cyan-lighten: oklch(0.6 0.07 225);
+  --cyan-darken: oklch(0.4 0.07 225);
+  --blue: oklch(0.5 0.13 255);
+  --blue-lighten: oklch(0.6 0.13 255);
+  --blue-darken: oklch(0.4 0.13 255);
+  --purple: oklch(0.5 0.21 300);
+  --purple-lighten: oklch(0.6 0.21 300);
+  --purple-darken: oklch(0.4 0.21 300);
+
+  --light-color: var(--black);
+  --light-background-color: var(--white);
+
+  --dark-color: var(--white);
+  --dark-background-color: var(--black);
+
+  --default-color: light-dark(var(--light-color), var(--dark-color));
+  --default-background-color: light-dark(var(--light-background-color), var(--dark-background-color));
+  --grey-color: light-dark(var(--grey-darken), var(--grey-lighten));
+  --red-color: light-dark(var(--red-darken), var(--red-lighten));
+  --yellow-color: light-dark(var(--yellow-darken), var(--yellow-lighten));
+  --secondary-background-color: light-dark(var(--white-darken), var(--black-lighten));
+  --red-background-color: light-dark(var(--red-lighten), var(--red-darken));
+  --blue-background-color: light-dark(var(--blue-lighten), var(--blue-darken));
+  --purple-background-color: light-dark(var(--purple-lighten), var(--purple-darken));
+}
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+h1 {
+  font-weight: 900;
+  font-size: 4rem;
+}
+body {
+  font-size: 0.8125rem;
+  color: var(--default-color);
+  background-color: var(--default-background-color);
+}
+button, .button {
+  border: none;
+  border-radius: 0.5rem;
+  color: var(--default-color);
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+
+  background-color: var(--purple-background-color);
+
+  &:hover {
+    background-color: var(--purple);
+  }
+}
+.button-blue {
+  background-color: var(--blue-background-color);
+
+  &:hover {
+    background-color: var(--blue);
+  }
+}
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+input {
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  font-family: inherit;
+  font-feature-settings: inherit;
+  font-size: inherit;
+  text-align: center;
+  color: var(--default-color);
+  background-color: var(--secondary-background-color);
+
+  &::placeholder {
+    color: var(--grey-color);
+  }
+}
+a {
+  text-decoration: none;
+}
+p.error {
+  color: var(--red-color);
+}
+p.warning {
+  color: var(--yellow-color);
+}
+div.content {
+  width: 900px;
+  margin: auto;
+  padding: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+div.flex-columns {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+}
+.center-fill {
+  width: 100%;
+  text-align: center;
+}
+.full-screen {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  width: 100dvw;
+  height: 100dvh;
+}
+table {
+  border-collapse: collapse;
+  width: fit-content;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+}
+th, td {
+  border: none;
+  padding: 0.5rem 1rem;
+  text-align: left;
+  white-space: nowrap;
+}
+tbody tr:nth-child(odd) {
+  background-color: var(--secondary-background-color);
+}
+thead tr {
+  background-color: var(--purple-background-color);
+}
+thead th:first-child {
+    border-top-left-radius: 0.5rem;
+}
+thead th:last-child {
+    border-top-right-radius: 0.5rem;
+}
+tbody tr:last-child td:first-child {
+    border-bottom-left-radius: 0.5rem;
+}
+tbody tr:last-child td:last-child {
+    border-bottom-right-radius: 0.5rem;
+}

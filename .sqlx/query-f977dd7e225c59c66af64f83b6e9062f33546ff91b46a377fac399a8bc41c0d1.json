@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                        INSERT INTO\n                            auth_saml_credentials\n                            (user_id, provider_id, name_id, attributes)\n                        VALUES ($1, $2, $3, $4)\n                        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Text",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f977dd7e225c59c66af64f83b6e9062f33546ff91b46a377fac399a8bc41c0d1"
+}

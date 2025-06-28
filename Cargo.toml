@@ -7,19 +7,34 @@ description = "A web platform for learning, creating, and testing software"
 license = "MPL-2.0"
 
 [dependencies]
+argon2 = "0.5.3"
 axum = { version = "0.8.4", features = ["ws"] }
+axum-extra = { version = "0.10.1", features = ["cookie-private"] }
+base64 = "0.22"
 clap = { version = "4.5.40", features = ["derive"] }
+flate2 = "1.1.2"
 futures = "0.3.31"
 hmac = "0.12.1"
-quick-xml = "0.37.5"
+maud = { version = "0.27.0", features = ["axum"] }
+quick-xml = { version = "0.37.5", features = ["serialize", "serde-types"] }
+rand = "0.9.1"
+rpassword = "7.4.0"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 sha2 = "0.10.9"
-sqlx = { version = "0.8.6", features = ["runtime-tokio", "postgres"] }
+sqlx = { version = "0.8.6", features = ["runtime-tokio", "postgres", "time", "uuid"] }
+time = { version = "0.3.41", features = ["serde", "formatting"] }
 tokio = { version = "1.45.1", features = ["macros", "rt-multi-thread"] }
+tower = "0.5.2"
 tower-http = { version = "0.6.6", features = ["trace"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+urlencoding = "2.1"
+uuid = { version = "1.0", features = ["v4"] }
+
+[build-dependencies]
+ureq = "3.0.12"
+zip = "4.2.0"
 
 [dev-dependencies]
 http-body-util = "0.1.3"

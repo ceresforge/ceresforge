@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT users.id, auth_local_credentials.password_hash AS \"password_hash?\"\n        FROM users\n        LEFT JOIN auth_local_credentials\n        ON users.id = auth_local_credentials.user_id\n        WHERE users.username = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "password_hash?",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "451256795206bf4cd934749683b71373dddc1fc540ac96d740c1fae504e26a6a"
+}
