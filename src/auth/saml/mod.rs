@@ -19,7 +19,9 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use std::collections::HashMap;
 use std::io::Write as _;
+use std::process::Command;
 use std::str::FromStr;
+use tempfile::NamedTempFile;
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use uuid::Uuid;
 
@@ -30,7 +32,7 @@ struct Payload {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct SamlResponse {
     #[serde(rename = "@Destination")]
     destination: String,
@@ -51,7 +53,7 @@ struct SamlResponse {
     issuer: Issuer,
 
     #[serde(rename = "Signature")]
-    signature: Signature,
+    signature: Option<Signature>,
 
     #[serde(rename = "Status")]
     status: Status,
@@ -61,14 +63,14 @@ struct SamlResponse {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct Issuer {
     #[serde(rename = "$value")]
     value: String,
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct Signature {
     #[serde(rename = "SignedInfo")]
     signed_info: SignedInfo,
@@ -81,7 +83,7 @@ struct Signature {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct SignedInfo {
     #[serde(rename = "CanonicalizationMethod")]
     canonicalization_method: CanonicalizationMethod,
@@ -94,21 +96,21 @@ struct SignedInfo {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct CanonicalizationMethod {
     #[serde(rename = "@Algorithm")]
     algorithm: String,
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct SignatureMethod {
     #[serde(rename = "@Algorithm")]
     algorithm: String,
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct Reference {
     #[serde(rename = "@URI")]
     uri: String,
@@ -124,14 +126,14 @@ struct Reference {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct Transforms {
     #[serde(rename = "Transform")]
     transforms: Vec<Transform>,
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct Transform {
     #[serde(rename = "@Algorithm")]
     algorithm: String,
@@ -141,68 +143,68 @@ struct Transform {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct InclusiveNamespaces {
     #[serde(rename = "@PrefixList")]
     prefix_list: String,
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct DigestMethod {
     #[serde(rename = "@Algorithm")]
     algorithm: String,
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct DigestValue {
     #[serde(rename = "$value")]
     value: String,
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct SignatureValue {
     #[serde(rename = "$value")]
     value: String,
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct KeyInfo {
     #[serde(rename = "X509Data")]
     x509_data: X509Data,
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct X509Data {
     #[serde(rename = "X509Certificate")]
     x509_certificate: X509Certificate,
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct X509Certificate {
     #[serde(rename = "$value")]
     value: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct Status {
     #[serde(rename = "StatusCode")]
     status_code: SamlStatusCode,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct SamlStatusCode {
     #[serde(rename = "@Value")]
     value: String,
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct Assertion {
     #[serde(rename = "@ID")]
     id: String,
@@ -230,7 +232,7 @@ struct Assertion {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct Subject {
     #[serde(rename = "NameID")]
     name_id: NameId,
@@ -240,7 +242,7 @@ struct Subject {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct NameId {
     #[serde(rename = "@Format")]
     format: String,
@@ -256,7 +258,7 @@ struct NameId {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct SubjectConfirmation {
     #[serde(rename = "@Method")]
     method: String,
@@ -266,7 +268,7 @@ struct SubjectConfirmation {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct SubjectConfirmationData {
     #[serde(rename = "@Address")]
     address: String,
@@ -282,7 +284,7 @@ struct SubjectConfirmationData {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct Conditions {
     #[serde(rename = "@NotBefore")]
     not_before: String,
@@ -295,21 +297,21 @@ struct Conditions {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct AudienceRestriction {
     #[serde(rename = "Audience")]
     audience: Audience,
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct Audience {
     #[serde(rename = "$value")]
     value: String,
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct AuthnStatement {
     #[serde(rename = "@AuthnInstant")]
     authn_instant: String,
@@ -325,35 +327,35 @@ struct AuthnStatement {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct SubjectLocality {
     #[serde(rename = "@Address")]
     address: String,
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct AuthnContext {
     #[serde(rename = "AuthnContextClassRef")]
     authn_context_class_ref: AuthnContextClassRef,
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct AuthnContextClassRef {
     #[serde(rename = "$value")]
     value: String,
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct AttributeStatement {
     #[serde(rename = "Attribute")]
     attributes: Vec<Attribute>,
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct Attribute {
     #[serde(rename = "@FriendlyName")]
     friendly_name: String,
@@ -369,7 +371,7 @@ struct Attribute {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct AttributeValue {
     #[serde(rename = "NameID")]
     name_id: Option<NameId>,
@@ -615,6 +617,29 @@ fn not_connected() -> Response {
     .into_response()
 }
 
+fn verify_response(certificate: &str, xml: &str) -> Result<bool, std::io::Error> {
+    let mut temp_pem = NamedTempFile::new()?;
+    let pem = format!(
+        "-----BEGIN CERTIFICATE-----\n{}\n-----END CERTIFICATE-----\n",
+        certificate
+    );
+    temp_pem.write_all(pem.as_bytes())?;
+
+    let mut temp_xml = NamedTempFile::new().unwrap();
+    temp_xml.write_all(xml.as_bytes())?;
+
+    let output = Command::new("xmlsec1")
+        .arg("--verify")
+        .arg("--id-attr:ID")
+        .arg("Response")
+        .arg("--trusted-pem")
+        .arg(temp_pem.path())
+        .arg(temp_xml.path())
+        .output()?;
+
+    Ok(output.status.success())
+}
+
 async fn acs(
     State(state): State<AppState>,
     jar: PrivateCookieJar,
@@ -630,6 +655,12 @@ async fn acs(
     let saml_response = payload.saml_response;
     let decoded_bytes = BASE64_STANDARD.decode(&saml_response)?;
     let xml = String::from_utf8(decoded_bytes)?;
+
+    let is_verified = verify_response(&provider.certificate, &xml)?;
+    if !is_verified {
+        return Ok(plain_400());
+    }
+
     let response: SamlResponse = quick_xml::de::from_str(&xml)?;
 
     if response.status.status_code.value != "urn:oasis:names:tc:SAML:2.0:status:Success" {
@@ -703,12 +734,12 @@ async fn acs(
                 } else {
                     sqlx::query!(
                         r#"
-                            UPDATE auth_saml_credentials
-                            SET attributes = $1, updated_at = now()
-                            WHERE user_id = $2
-                                AND provider_id = $3
-                                AND name_id = $4
-                            "#,
+                        UPDATE auth_saml_credentials
+                        SET attributes = $1, updated_at = now()
+                        WHERE user_id = $2
+                            AND provider_id = $3
+                            AND name_id = $4
+                        "#,
                         attributes_json,
                         user_id,
                         provider.id,
@@ -721,21 +752,21 @@ async fn acs(
             }
             None => {
                 let result = sqlx::query!(
-                        r#"
-                        INSERT INTO
-                            auth_saml_credentials
-                            (user_id, provider_id, name_id, attributes)
-                        VALUES ($1, $2, $3, $4)
-                        ON CONFLICT (user_id, provider_id)
-                        DO NOTHING
-                        "#,
-                        user_id,
-                        provider.id,
-                        name_id,
-                        attributes_json
-                    )
-                    .execute(pool)
-                    .await?;
+                    r#"
+                    INSERT INTO
+                        auth_saml_credentials
+                        (user_id, provider_id, name_id, attributes)
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT (user_id, provider_id)
+                    DO NOTHING
+                    "#,
+                    user_id,
+                    provider.id,
+                    name_id,
+                    attributes_json
+                )
+                .execute(pool)
+                .await?;
                 if result.rows_affected() == 0 {
                     return Ok(already_connected_to_different_name_id());
                 }
@@ -789,11 +820,11 @@ async fn acs(
 
                 sqlx::query!(
                     r#"
-                        INSERT INTO
-                            auth_saml_credentials
-                            (user_id, provider_id, name_id, attributes)
-                        VALUES ($1, $2, $3, $4)
-                        "#,
+                    INSERT INTO
+                        auth_saml_credentials
+                        (user_id, provider_id, name_id, attributes)
+                    VALUES ($1, $2, $3, $4)
+                    "#,
                     user_id,
                     provider.id,
                     name_id,

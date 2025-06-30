@@ -164,6 +164,15 @@ fn plain_405() -> Response {
     plain_fullscreen("405", "Method Not Allowed.", StatusCode::METHOD_NOT_ALLOWED).into_response()
 }
 
+fn plain_500() -> Response {
+    plain_fullscreen(
+        "500",
+        "Internal Server Error.",
+        StatusCode::INTERNAL_SERVER_ERROR,
+    )
+    .into_response()
+}
+
 async fn method_not_allowed_fallback() -> impl IntoResponse {
     plain_405()
 }
