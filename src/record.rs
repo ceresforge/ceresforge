@@ -7,8 +7,8 @@ use time::OffsetDateTime;
 pub struct User {
     pub id: i64,
     pub username: String,
-    pub email: String,
     pub is_admin: bool,
+    pub email: Option<String>,
     pub first_name: Option<String>,
     pub last_name: Option<String>,
     pub created_at: OffsetDateTime,
@@ -37,6 +37,7 @@ pub struct SamlProvider {
     pub id: i64,
     pub slug: String,
     pub name: String,
+    pub metadata_url: String,
     pub sso_url: String,
     pub certificate: String,
     pub requested_attributes: JsonValue,

@@ -283,7 +283,11 @@ async fn admin(
                                 "❌"
                             }
                         }
-                        td { (user.email) }
+                        td {
+                            @if let Some(email) = &user.email {
+                                (email)
+                            }
+                        }
                         td {
                             @if let Some(first_name) = &user.first_name {
                                 (first_name)

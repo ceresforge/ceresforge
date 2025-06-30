@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS auth_saml_providers (
         NOT NULL
         CONSTRAINT auth_saml_providers_name_check
         CHECK (char_length(name) >= 3),
+    metadata_url text NOT NULL CONSTRAINT auth_saml_providers_metadata_url_check CHECK (char_length(metadata_url) > 0),
     sso_url text NOT NULL CONSTRAINT auth_saml_providers_sso_url_check CHECK (char_length(sso_url) > 0),
     certificate text
         NOT NULL
