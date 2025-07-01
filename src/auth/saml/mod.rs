@@ -640,6 +640,31 @@ fn verify_response(certificate: &str, xml: &str) -> Result<bool, std::io::Error>
     Ok(output.status.success())
 }
 
+async fn update_credentials(
+    pool: &PgPool,
+    user_id: i64,
+    provider_id: i64,
+    name_id: &str,
+    attributes_json: &serde_json::Value,
+) -> FrontendResult<()> {
+    sqlx::query!(
+        r#"
+        UPDATE auth_saml_credentials
+        SET attributes = $1, updated_at = now()
+        WHERE user_id = $2
+            AND provider_id = $3
+            AND name_id = $4
+        "#,
+        attributes_json,
+        user_id,
+        provider_id,
+        name_id
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 async fn acs(
     State(state): State<AppState>,
     jar: PrivateCookieJar,
@@ -732,20 +757,13 @@ async fn acs(
                 if user_id != credential.user_id {
                     return Ok(already_connected());
                 } else {
-                    sqlx::query!(
-                        r#"
-                        UPDATE auth_saml_credentials
-                        SET attributes = $1, updated_at = now()
-                        WHERE user_id = $2
-                            AND provider_id = $3
-                            AND name_id = $4
-                        "#,
-                        attributes_json,
+                    update_credentials(
+                        pool,
                         user_id,
                         provider.id,
-                        name_id
+                        name_id.as_str(),
+                        &attributes_json,
                     )
-                    .execute(pool)
                     .await?;
                     return Ok(Redirect::to(redirect.unwrap_or("/")).into_response());
                 }
@@ -775,7 +793,18 @@ async fn acs(
         },
         /* Login */
         None => match credential {
-            Some(c) => create_session(pool, jar, c.user_id, redirect).await,
+            Some(c) => {
+                let user_id = c.user_id;
+                update_credentials(
+                    pool,
+                    user_id,
+                    provider.id,
+                    name_id.as_str(),
+                    &attributes_json,
+                )
+                .await?;
+                create_session(pool, jar, user_id, redirect).await
+            }
             None => {
                 if !provider.is_user_creation_allowed {
                     return Ok(not_connected());

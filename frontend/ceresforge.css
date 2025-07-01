@@ -47,19 +47,15 @@
   --purple-lighten: oklch(0.6 0.21 300);
   --purple-darken: oklch(0.4 0.21 300);
 
-  --light-color: var(--black);
-  --light-background-color: var(--white);
-
-  --dark-color: var(--white);
-  --dark-background-color: var(--black);
-
-  --default-color: light-dark(var(--light-color), var(--dark-color));
-  --default-background-color: light-dark(var(--light-background-color), var(--dark-background-color));
+  --default-color: light-dark(var(--black), var(--white));
+  --default-background-color: light-dark(var(--white), var(--black));
+  --subtle-color: light-dark(var(--black-lighten), var(--white-darken));
+  --subtle-background-color: light-dark(var(--white-darken), var(--black-lighten));
   --grey-color: light-dark(var(--grey-darken), var(--grey-lighten));
+  --grey-background-color: light-dark(var(--grey-lighten), var(--grey-darken));
   --red-color: light-dark(var(--red-darken), var(--red-lighten));
-  --yellow-color: light-dark(var(--yellow-darken), var(--yellow-lighten));
-  --secondary-background-color: light-dark(var(--white-darken), var(--black-lighten));
   --red-background-color: light-dark(var(--red-lighten), var(--red-darken));
+  --yellow-color: light-dark(var(--yellow-darken), var(--yellow-lighten));
   --blue-background-color: light-dark(var(--blue-lighten), var(--blue-darken));
   --purple-background-color: light-dark(var(--purple-lighten), var(--purple-darken));
 }
@@ -90,7 +86,14 @@ button, .button {
     background-color: var(--purple);
   }
 }
-.button-blue {
+.red-bg {
+  background-color: var(--red-background-color);
+
+  &:hover {
+    background-color: var(--red);
+  }
+}
+.blue-bg {
   background-color: var(--blue-background-color);
 
   &:hover {
@@ -111,7 +114,7 @@ input {
   font-size: inherit;
   text-align: center;
   color: var(--default-color);
-  background-color: var(--secondary-background-color);
+  background-color: var(--subtle-background-color);
 
   &::placeholder {
     color: var(--grey-color);
@@ -168,7 +171,7 @@ th, td {
   white-space: nowrap;
 }
 tbody tr:nth-child(odd) {
-  background-color: var(--secondary-background-color);
+  background-color: var(--subtle-background-color);
 }
 thead tr {
   background-color: var(--purple-background-color);

@@ -27,7 +27,7 @@ use argon2::{
     password_hash::{PasswordHasher, SaltString, rand_core::OsRng},
 };
 
-const CSS_PATH: &str = "/ceresforge-0.0.2-dev.css";
+const CSS_PATH: &str = "/ceresforge-0.0.2-dev.1.css";
 
 #[derive(Debug, clap::Parser)]
 struct Args {
@@ -201,12 +201,15 @@ async fn home(State(state): State<AppState>, user: Option<User>) -> FrontendResu
                 (description)
             }
             div .flex-columns {
+                a .button .red-bg .center-fill href="/admin" {
+                    "Admin"
+                }
                 @if user.is_none() {
                     a .button .center-fill href="/auth/local/login" {
                         "Log in"
                     }
                     @for provider in &providers {
-                        a .button .button-blue .center-fill href={"/auth/saml/login/" (provider.slug)} {
+                        a .button .blue-bg .center-fill href={"/auth/saml/login/" (provider.slug)} {
                             "Log in with " (provider.name)
                         }
                     }
@@ -216,7 +219,7 @@ async fn home(State(state): State<AppState>, user: Option<User>) -> FrontendResu
                         "Log out"
                     }
                     @for provider in &providers {
-                        a .button .button-blue .center-fill href={"/auth/saml/connect/" (provider.slug)} {
+                        a .button .blue-bg .center-fill href={"/auth/saml/connect/" (provider.slug)} {
                             "Connect with " (provider.name)
                         }
                     }
