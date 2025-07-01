@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS sessions (
         DEFAULT now(),
     expires_at timestamp with time zone
         NOT NULL
-        DEFAULT (now() + interval '90 days'),
+        DEFAULT (now() + interval '90 days')
 );
 
 CREATE INDEX IF NOT EXISTS sessions_user_id_key ON sessions USING btree (user_id);
