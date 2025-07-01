@@ -36,12 +36,12 @@ CREATE TABLE IF NOT EXISTS sessions (
     user_id bigint
         NOT NULL
         REFERENCES users(id) ON DELETE CASCADE,
+    created_at timestamp with time zone
+        NOT NULL
+        DEFAULT now(),
     expires_at timestamp with time zone
         NOT NULL
         DEFAULT (now() + interval '90 days'),
-    created_at timestamp with time zone
-        NOT NULL
-        DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS sessions_user_id_key ON sessions USING btree (user_id);
