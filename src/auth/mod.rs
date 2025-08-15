@@ -7,6 +7,7 @@ use crate::{AppState, base};
 use axum::extract::State;
 use axum::{
     Router,
+    extract::Query,
     response::{IntoResponse, Redirect, Response},
     routing::get,
 };
@@ -56,6 +57,23 @@ where
 struct Params {
     #[serde(default, deserialize_with = "deserialize_redirect")]
     redirect: Option<String>,
+}
+
+fn redirect_uri(uri: &str, redirect: Option<&str>) -> String {
+    if let Some(s) = redirect {
+        let value = urlencoding::encode(s);
+        format!("{}?redirect={}", uri, value)
+    } else {
+        uri.to_string()
+    }
+}
+
+pub fn login_required_uri(uri: &str, user: &Option<User>) -> String {
+    if user.is_none() {
+        redirect_uri("/auth/login", Some(uri))
+    } else {
+        uri.to_string()
+    }
 }
 
 fn already_logged_in() -> Response {
@@ -130,6 +148,53 @@ async fn create_session(
         .into_response())
 }
 
+async fn login(
+    State(state): State<AppState>,
+    user: Option<User>,
+    Query(params): Query<Params>,
+) -> FrontendResult<Response> {
+    if user.is_some() {
+        return Ok(already_logged_in());
+    }
+    let redirect = params.redirect.as_deref();
+
+    let pool = &state.pool;
+    let providers = sqlx::query_as!(
+        crate::record::SamlProvider,
+        "SELECT * FROM auth_saml_providers"
+    )
+    .fetch_all(pool)
+    .await?;
+
+    let title = "Login";
+    let description = "Please log in using one of the available options.";
+    let body = html! {
+        div .full-screen {
+            h1 {
+                (title)
+            }
+            p {
+                (description)
+            }
+            div .flex-columns {
+                a .button .center-fill href=(redirect_uri("/auth/local/login", redirect)) {
+                    "Log in"
+                }
+                @for provider in &providers {
+                    a .button .blue-bg .center-fill href=(redirect_uri(&format!("/auth/saml/login/{}", provider.slug), redirect)) {
+                        "Log in with " (provider.name)
+                    }
+                }
+            }
+        }
+    };
+
+    Ok(html! {
+        (base(title, description, body))
+    }
+    .into_response())
+}
+
 async fn logout(
     user: Option<User>,
     jar: PrivateCookieJar,
@@ -161,9 +226,60 @@ async fn logout(
     }
 }
 
+async fn auth(State(state): State<AppState>, user: Option<User>) -> FrontendResult<Response> {
+    let pool = &state.pool;
+    let providers = sqlx::query_as!(
+        crate::record::SamlProvider,
+        "SELECT * FROM auth_saml_providers"
+    )
+    .fetch_all(pool)
+    .await?;
+
+    let title = "Auth";
+    let description = "Authenticate to CeresForge.";
+    let body = html! {
+        div .full-screen {
+            h1 {
+                (title)
+            }
+            p {
+                (description)
+            }
+            div .flex-columns {
+                @if user.is_none() {
+                    a .button .center-fill href="/auth/local/login" {
+                        "Log in"
+                    }
+                    @for provider in &providers {
+                        a .button .blue-bg .center-fill href={"/auth/saml/login/" (provider.slug)} {
+                            "Log in with " (provider.name)
+                        }
+                    }
+                }
+                @else {
+                    @for provider in &providers {
+                        a .button .blue-bg .center-fill href={"/auth/saml/connect/" (provider.slug)} {
+                            "Connect with " (provider.name)
+                        }
+                    }
+                    a .button .red-bg .center-fill href="/auth/logout" {
+                        "Log out"
+                    }
+                }
+            }
+        }
+    };
+    Ok(html! {
+        (base(title, description, body))
+    }
+    .into_response())
+}
+
 pub fn routes() -> Router<AppState> {
     Router::new()
+        .route("/", get(auth))
+        .route("/login", get(login))
+        .route("/logout", get(logout))
         .nest("/local", local::routes())
         .nest("/saml", saml::routes())
-        .route("/logout", get(logout))
 }

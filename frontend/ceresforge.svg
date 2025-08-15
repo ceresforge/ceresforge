@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+  <style>
+    path {
+      stroke-width: 4;
+      stroke: oklch(1 0 0);
+      fill: oklch(0.5 0.21 300);
+    }
+  </style>
+  <path
+    d="M 2 50 L 26 8.43 L 74 8.43 L 98 50 L 74 91.57 L 26 91.57 Z"
+    stroke-linejoin="round"
+  />
+</svg>

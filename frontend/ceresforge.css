@@ -58,32 +58,85 @@
   --yellow-color: light-dark(var(--yellow-darken), var(--yellow-lighten));
   --blue-background-color: light-dark(var(--blue-lighten), var(--blue-darken));
   --purple-background-color: light-dark(var(--purple-lighten), var(--purple-darken));
+
+  --header-height: 3rem;
 }
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
-h1 {
-  font-weight: 900;
-  font-size: 4rem;
-}
 body {
   font-size: 0.8125rem;
   color: var(--default-color);
   background-color: var(--default-background-color);
+  overscroll-behavior: none;
+}
+header {
+  background-color: var(--subtle-background-color);
+  height: var(--header-height);
+  align-content: center;
+  padding: 0.5rem;
+  position: sticky;
+  top: 0;
+}
+main {
+  position: fixed;
+  top: var(--header-height);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: auto;
+}
+article {
+  width: 900px;
+  margin: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+nav {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+nav a {
+  display: inline-block;
+  font-weight: 600;
+  margin: 0 0.5rem;
+  color: var(--default-color);
+  &:hover {
+    color: var(--subtle-color);
+  }
+}
+nav a:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+nav a:not(:first-child) {
+  padding: 0.5rem 1rem;
+}
+nav a img {
+  width: 2rem;
+  height: 2rem;
+}
+h1 {
+  font-weight: 900;
+  font-size: 4rem;
 }
 button, .button {
   border: none;
   border-radius: 0.5rem;
+  background-color: var(--purple-background-color);
   color: var(--default-color);
   font-weight: 600;
   padding: 0.5rem 1rem;
 
-  background-color: var(--purple-background-color);
-
   &:hover {
     background-color: var(--purple);
+    color: var(--default-color);
   }
 }
 .red-bg {
@@ -129,14 +182,6 @@ p.error {
 p.warning {
   color: var(--yellow-color);
 }
-div.content {
-  width: 900px;
-  margin: auto;
-  padding: 1rem 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
 div.flex-columns {
   display: flex;
   flex-direction: column;
@@ -158,11 +203,11 @@ div.flex-columns {
   height: 100dvh;
 }
 table {
-  border-collapse: collapse;
   width: fit-content;
-  border-collapse: separate;
   border-spacing: 0;
-  overflow: hidden;
+  background-color: var(--default-background-color);
+  border-radius: 0.5rem;
+  overflow: clip;
 }
 th, td {
   border: none;
@@ -173,18 +218,11 @@ th, td {
 tbody tr:nth-child(odd) {
   background-color: var(--subtle-background-color);
 }
-thead tr {
+tbody tr:nth-child(even) {
+  background-color: var(--grey-background-color);
+}
+thead th {
   background-color: var(--purple-background-color);
-}
-thead th:first-child {
-    border-top-left-radius: 0.5rem;
-}
-thead th:last-child {
-    border-top-right-radius: 0.5rem;
-}
-tbody tr:last-child td:first-child {
-    border-bottom-left-radius: 0.5rem;
-}
-tbody tr:last-child td:last-child {
-    border-bottom-right-radius: 0.5rem;
+  position: sticky;
+  top: 0;
 }

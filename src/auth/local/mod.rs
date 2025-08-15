@@ -1,4 +1,4 @@
-use super::{Params, already_logged_in, create_session};
+use super::{Params, already_logged_in, create_session, redirect_uri};
 use crate::{AppState, base, frontend::FrontendResult};
 use crate::{auth::AuthError, record::User};
 use argon2::{
@@ -21,19 +21,10 @@ struct Payload {
     password: String,
 }
 
-fn add_redirect(uri: &str, redirect: Option<&str>) -> String {
-    if let Some(s) = redirect {
-        let value = urlencoding::encode(s);
-        format!("{}?redirect={}", uri, value)
-    } else {
-        uri.to_string()
-    }
-}
-
 fn login_form(err: Option<AuthError>, username: Option<&str>, redirect: Option<&str>) -> Response {
     let title = "Login";
     let description = "Please enter your username and password.";
-    let action = add_redirect("/auth/local/login", redirect.as_deref());
+    let action = redirect_uri("/auth/local/login", redirect.as_deref());
     let body = html! {
         div .full-screen {
             h1 {

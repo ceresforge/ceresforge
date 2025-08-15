@@ -6,9 +6,10 @@ mod frontend;
 mod record;
 mod webfinger;
 
+use auth::login_required_uri;
 use axum::{
     Router,
-    extract::{FromRef, OriginalUri, State},
+    extract::{FromRef, OriginalUri},
     http::{StatusCode, header},
     response::{Html, IntoResponse, Response},
     routing::get,
@@ -27,7 +28,8 @@ use argon2::{
     password_hash::{PasswordHasher, SaltString, rand_core::OsRng},
 };
 
-const CSS_PATH: &str = "/ceresforge-0.0.2-dev.1.css";
+const CSS_PATH: &str = "/ceresforge-0.0.2-dev.2.css";
+const SVG_PATH: &str = "/ceresforge-0.0.2-dev.1.svg";
 
 #[derive(Debug, clap::Parser)]
 struct Args {
@@ -102,6 +104,16 @@ async fn inter_italic() -> impl IntoResponse {
     )
 }
 
+async fn svg() -> impl IntoResponse {
+    (
+        [
+            (header::CONTENT_TYPE, "image/svg+xml"),
+            (header::CACHE_CONTROL, "max-age=31536000"),
+        ],
+        include_str!("../frontend/ceresforge.svg"),
+    )
+}
+
 use maud::{DOCTYPE, Markup, html};
 
 use crate::{frontend::FrontendResult, record::User};
@@ -117,6 +129,7 @@ pub fn base(title: &str, description: &str, body: Markup) -> Markup {
                 meta name="color-scheme" content="light dark";
                 meta name="description" content=(description);
                 meta name="viewport" content="width=device-width, initial-scale=1";
+                link rel="icon" href=(SVG_PATH) type="image/svg+xml";
                 link rel="stylesheet" href=(CSS_PATH);
             }
             body {
@@ -181,15 +194,7 @@ async fn fallback() -> impl IntoResponse {
     plain_404()
 }
 
-async fn home(State(state): State<AppState>, user: Option<User>) -> FrontendResult<Response> {
-    let pool = &state.pool;
-    let providers = sqlx::query_as!(
-        crate::record::SamlProvider,
-        "SELECT * FROM auth_saml_providers"
-    )
-    .fetch_all(pool)
-    .await?;
-
+async fn home(user: Option<User>) -> FrontendResult<Response> {
     let title = "CeresForge";
     let description = "A web platform for learning, creating, and testing software.";
     let body = html! {
@@ -201,28 +206,8 @@ async fn home(State(state): State<AppState>, user: Option<User>) -> FrontendResu
                 (description)
             }
             div .flex-columns {
-                a .button .red-bg .center-fill href="/admin" {
+                a .button .red-bg .center-fill href=(login_required_uri("/admin", &user)) {
                     "Admin"
-                }
-                @if user.is_none() {
-                    a .button .center-fill href="/auth/local/login" {
-                        "Log in"
-                    }
-                    @for provider in &providers {
-                        a .button .blue-bg .center-fill href={"/auth/saml/login/" (provider.slug)} {
-                            "Log in with " (provider.name)
-                        }
-                    }
-                }
-                @else {
-                    a .button .center-fill href="/auth/logout" {
-                        "Log out"
-                    }
-                    @for provider in &providers {
-                        a .button .blue-bg .center-fill href={"/auth/saml/connect/" (provider.slug)} {
-                            "Connect with " (provider.name)
-                        }
-                    }
                 }
             }
         }
@@ -255,53 +240,68 @@ async fn admin(
     let title = "Admin";
     let description = "Displays administrator information.";
     let body = html! {
-        div.content {
-            h1 {
-                (title)
-            }
-            p {
-                (description)
-            }
-            table {
-                thead {
-                    tr {
-                        th { "ID" }
-                        th { "Username" }
-                        th { "Admin" }
-                        th { "Email" }
-                        th { "First Name" }
-                        th { "Last Name" }
-                    }
+        header {
+            nav {
+                a href="/" {
+                   img src=(SVG_PATH) alt="CeresForge";
                 }
-                tbody {
-                    @for user in &users {
-                    tr {
-                        td { (user.id) }
-                        td { (user.username) }
-                        td {
-                            @if user.is_admin {
-                                "✅"
-                            }
-                            @else {
-                                "❌"
-                            }
-                        }
-                        td {
-                            @if let Some(email) = &user.email {
-                                (email)
-                            }
-                        }
-                        td {
-                            @if let Some(first_name) = &user.first_name {
-                                (first_name)
-                            }
-                        }
-                        td {
-                            @if let Some(last_name) = &user.last_name {
-                                (last_name)
-                            }
+                a href="/admin" {
+                    "Admin"
+                }
+                a href="/auth" .button {
+                    "Log in"
+                }
+            }
+        }
+        main {
+            article {
+                h1 {
+                    (title)
+                }
+                p {
+                    (description)
+                }
+                table {
+                    thead {
+                        tr {
+                            th { "ID" }
+                            th { "Username" }
+                            th { "Admin" }
+                            th { "Email" }
+                            th { "First Name" }
+                            th { "Last Name" }
                         }
                     }
+                    tbody {
+                        @for user in &users {
+                        tr {
+                            td { (user.id) }
+                            td { (user.username) }
+                            td {
+                                @if user.is_admin {
+                                    "✅"
+                                }
+                                @else {
+                                    "❌"
+                                }
+                            }
+                            td {
+                                @if let Some(email) = &user.email {
+                                    (email)
+                                }
+                            }
+                            td {
+                                @if let Some(first_name) = &user.first_name {
+                                    (first_name)
+                                }
+                            }
+                            td {
+                                @if let Some(last_name) = &user.last_name {
+                                    (last_name)
+                                }
+                            }
+                        }
+                        }
                     }
                 }
             }
@@ -341,6 +341,7 @@ async fn app() -> Router {
         .route(CSS_PATH, get(css))
         .route("/inter-normal-4.1.woff2", get(inter_normal))
         .route("/inter-italic-4.1.woff2", get(inter_italic))
+        .route(SVG_PATH, get(svg))
         .route("/.well-known", get(crate::webfinger::handler))
         .nest("/auth", auth::routes())
         .nest_service("/api", api::routes())
