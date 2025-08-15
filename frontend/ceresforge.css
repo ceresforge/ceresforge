@@ -68,6 +68,7 @@
 }
 body {
   font-size: 0.8125rem;
+  line-height: 1.5;
   color: var(--default-color);
   background-color: var(--default-background-color);
   overscroll-behavior: none;
