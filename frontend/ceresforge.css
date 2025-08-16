@@ -68,7 +68,6 @@
 }
 body {
   font-size: 0.8125rem;
-  line-height: 1.5;
   color: var(--default-color);
   background-color: var(--default-background-color);
   overscroll-behavior: none;
@@ -176,6 +175,9 @@ input {
 }
 a {
   text-decoration: none;
+}
+p {
+  line-height: 1.5;
 }
 p.error {
   color: var(--red-color);
