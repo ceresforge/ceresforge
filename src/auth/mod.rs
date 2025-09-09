@@ -1,4 +1,16 @@
+macro_rules! generate_secure_string {
+    ($length:expr) => {{
+        use base64ct::{Base64UrlUnpadded, Encoding};
+        use rand::RngCore;
+
+        let mut bytes = [0u8; $length];
+        rand::rng().fill_bytes(&mut bytes);
+        Base64UrlUnpadded::encode_string(&bytes)
+    }};
+}
+
 mod local;
+mod oauth2;
 mod saml;
 
 use crate::frontend::FrontendResult;
@@ -113,12 +125,7 @@ fn not_logged_in() -> Response {
 }
 
 fn generate_session_id() -> String {
-    use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
-    use rand::RngCore;
-
-    let mut bytes = [0u8; 32];
-    rand::rng().fill_bytes(&mut bytes);
-    URL_SAFE_NO_PAD.encode(bytes)
+    generate_secure_string!(32)
 }
 
 async fn create_session(
@@ -281,5 +288,6 @@ pub fn routes() -> Router<AppState> {
         .route("/login", get(login))
         .route("/logout", get(logout))
         .nest("/local", local::routes())
+        .nest("/oauth2", oauth2::routes())
         .nest("/saml", saml::routes())
 }

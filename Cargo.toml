@@ -11,6 +11,7 @@ argon2 = "0.5.3"
 axum = { version = "0.8.4", features = ["ws"] }
 axum-extra = { version = "0.10.1", features = ["cookie-private"] }
 base64 = "0.22"
+base64ct = "1.8.0"
 clap = { version = "4.5.40", features = ["derive"] }
 flate2 = "1.1.2"
 futures = "0.3.31"
