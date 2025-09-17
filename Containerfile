@@ -21,6 +21,7 @@ RUN cargo build --release
 FROM $CONTAINER_IMAGE
 RUN DEBIAN_FRONTEND=noninteractive apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        libssl-dev \
         xmlsec1 \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /package/target/release/ceresforge /usr/local/bin/ceresforge
