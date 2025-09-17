@@ -1,4 +1,4 @@
-use super::{Params, already_logged_in, create_session};
+use super::{Params, already_logged_in, create_cookie};
 use crate::frontend::FrontendResult;
 use crate::record::{SamlAttribute, SamlProvider, User};
 use crate::{AppState, base, plain_400, plain_401, plain_404};
@@ -11,7 +11,7 @@ use axum::{
     routing::{get, post},
 };
 use axum_extra::extract::PrivateCookieJar;
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64_STANDARD};
+use base64ct::{Base64, Encoding};
 use flate2::Compression;
 use flate2::write::DeflateEncoder;
 use maud::html;
@@ -19,9 +19,9 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use std::collections::HashMap;
 use std::io::Write as _;
+use std::path::PathBuf;
 use std::process::Command;
 use std::str::FromStr;
-use tempfile::NamedTempFile;
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use uuid::Uuid;
 
@@ -432,7 +432,7 @@ struct NameIdPolicy {
     format: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename = "md:EntityDescriptor")]
 struct EntityDescriptor {
     #[serde(rename = "@xmlns:md")]
@@ -451,7 +451,7 @@ struct EntityDescriptor {
     sp_sso_descriptor: SPSSODescriptor,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct SPSSODescriptor {
     #[serde(rename = "@AuthnRequestsSigned")]
     authn_requests_signed: String,
@@ -472,7 +472,7 @@ struct SPSSODescriptor {
     attribute_consuming_services: Vec<AttributeConsumingService>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct AssertionConsumerService {
     #[serde(rename = "@Binding")]
     binding: String,
@@ -487,7 +487,7 @@ struct AssertionConsumerService {
     is_default: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct AttributeConsumingService {
     #[serde(rename = "@index")]
     index: String,
@@ -502,7 +502,7 @@ struct AttributeConsumingService {
     requested_attributes: Vec<RequestedAttribute>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct ServiceName {
     #[serde(rename = "@xml:lang")]
     lang: String,
@@ -511,7 +511,7 @@ struct ServiceName {
     value: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct RequestedAttribute {
     #[serde(rename = "@FriendlyName")]
     friendly_name: String,
@@ -528,7 +528,7 @@ struct RequestedAttribute {
 
 fn is_valid_slug(s: &str) -> bool {
     s.len() >= 3
-        && s.len() <= 32
+        && s.len() < 32
         && s.starts_with(|c: char| c.is_ascii_lowercase())
         && s.chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
@@ -617,26 +617,22 @@ fn not_connected() -> Response {
     .into_response()
 }
 
-fn verify_response(certificate: &str, xml: &str) -> Result<bool, std::io::Error> {
-    let mut temp_pem = NamedTempFile::new()?;
-    let pem = format!(
-        "-----BEGIN CERTIFICATE-----\n{}\n-----END CERTIFICATE-----\n",
-        certificate
-    );
-    temp_pem.write_all(pem.as_bytes())?;
+async fn verify_response(provider: &SamlProvider, xml: &str) -> Result<bool, std::io::Error> {
+    let pem_path = get_pem(provider).await;
 
-    let mut temp_xml = NamedTempFile::new().unwrap();
-    temp_xml.write_all(xml.as_bytes())?;
-
-    let output = Command::new("xmlsec1")
+    let mut child = Command::new("xmlsec1")
         .arg("--verify")
         .arg("--id-attr:ID")
         .arg("Response")
         .arg("--trusted-pem")
-        .arg(temp_pem.path())
-        .arg(temp_xml.path())
-        .output()?;
-
+        .arg(pem_path)
+        .arg("/dev/stdin").spawn().unwrap();
+    {
+        let mut stdin = child.stdin.take().unwrap();
+        stdin.write_all(xml.as_bytes()).unwrap();
+    }
+    
+    let output = child.wait_with_output().unwrap();
     Ok(output.status.success())
 }
 
@@ -649,7 +645,7 @@ async fn update_credentials(
 ) -> FrontendResult<()> {
     sqlx::query!(
         r#"
-        UPDATE auth_saml_credentials
+        UPDATE auth_saml_provider_credentials
         SET attributes = $1, updated_at = now()
         WHERE user_id = $2
             AND provider_id = $3
@@ -665,6 +661,91 @@ async fn update_credentials(
     Ok(())
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Deserialize)]
+#[serde(rename = "md:EntityDescriptor")]
+struct ProviderEntityDescriptor {
+    #[serde(rename = "@xmlns:md")]
+    xmlns_md: String,
+
+    #[serde(rename = "@xmlns:saml")]
+    xmlns_saml: String,
+
+    #[serde(rename = "@entityID")]
+    entity_id: String,
+
+    #[serde(rename = "IDPSSODescriptor")]
+    idp_sso_descriptor: IDPSSODescriptor,
+}
+
+#[derive(Debug, Deserialize)]
+struct IDPSSODescriptor {
+    #[serde(rename = "KeyDescriptor")]
+    key_descriptor: KeyDescriptor,
+}
+
+#[derive(Debug, Deserialize)]
+struct KeyDescriptor {
+    #[serde(rename = "KeyInfo")]
+    key_info: KeyInfo,
+}
+
+fn get_cache_dir() -> Option<PathBuf> {
+    if std::process::id() == 0 {
+        return Some(PathBuf::from("/var/cache"));
+    }
+    match std::env::var("XDG_CACHE_HOME") {
+        Ok(path_str) if !path_str.is_empty() => Some(PathBuf::from(path_str)),
+        _ => match std::env::var("HOME") {
+            Ok(home_dir_str) if !home_dir_str.is_empty() => {
+                let mut cache_path = PathBuf::from(home_dir_str);
+                cache_path.push(".cache");
+                Some(cache_path)
+            }
+            _ => None,
+        },
+    }
+}
+
+async fn get_pem(provider: &SamlProvider) -> PathBuf {
+    let metadata_url = &provider.metadata_url;
+    let request = reqwest::get(metadata_url)
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    let entity_descriptor: ProviderEntityDescriptor = quick_xml::de::from_str(&request).unwrap();
+
+    let mut certificate = entity_descriptor
+        .idp_sso_descriptor
+        .key_descriptor
+        .key_info
+        .x509_data
+        .x509_certificate
+        .value;
+    certificate.retain(|c| !char::is_whitespace(c));
+
+    let cache_dir = get_cache_dir().unwrap();
+    let saml_dir = cache_dir.join("ceresforge/auth/saml");
+    std::fs::create_dir_all(&saml_dir).unwrap();
+    let pem_path = saml_dir.join(format!("{}.pem", &provider.slug));
+
+    match std::fs::OpenOptions::new().write(true).create_new(true).open(&pem_path) {
+        Ok(mut file) => {
+            let pem = format!(
+                "-----BEGIN CERTIFICATE-----\n{}\n-----END CERTIFICATE-----\n",
+                certificate
+            );
+            file.write_all(pem.as_bytes()).unwrap();
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => (),
+        Err(_) => panic!(),
+    }
+
+    pem_path
+}
+
 async fn acs(
     State(state): State<AppState>,
     jar: PrivateCookieJar,
@@ -678,10 +759,10 @@ async fn acs(
     };
 
     let saml_response = payload.saml_response;
-    let decoded_bytes = BASE64_STANDARD.decode(&saml_response)?;
+    let decoded_bytes = Base64::decode_vec(&saml_response)?;
     let xml = String::from_utf8(decoded_bytes)?;
 
-    let is_verified = verify_response(&provider.certificate, &xml)?;
+    let is_verified = verify_response(&provider, &xml).await?;
     if !is_verified {
         return Ok(plain_400());
     }
@@ -702,7 +783,13 @@ async fn acs(
 
     let record = sqlx::query!(
         r#"
-        SELECT * FROM auth_saml_requests WHERE id = $1
+        SELECT
+            *
+        FROM
+            auth_saml_provider_requests
+        WHERE
+            id = $1
+            AND expires_at > now()
         "#,
         uuid
     )
@@ -727,7 +814,7 @@ async fn acs(
     let attributes_json = serde_json::to_value(&attributes)?;
     sqlx::query!(
         r#"
-        UPDATE auth_saml_requests
+        UPDATE auth_saml_provider_requests
         SET completed_at = now(), name_id = $1, attributes = $2
         WHERE id = $3
         "#,
@@ -741,7 +828,7 @@ async fn acs(
     let credential = sqlx::query!(
         r#"
         SELECT user_id
-        FROM auth_saml_credentials
+        FROM auth_saml_provider_credentials
         WHERE provider_id = $1 AND name_id = $2
         "#,
         provider.id,
@@ -772,7 +859,7 @@ async fn acs(
                 let result = sqlx::query!(
                     r#"
                     INSERT INTO
-                        auth_saml_credentials
+                        auth_saml_provider_credentials
                         (user_id, provider_id, name_id, attributes)
                     VALUES ($1, $2, $3, $4)
                     ON CONFLICT (user_id, provider_id)
@@ -803,7 +890,7 @@ async fn acs(
                     &attributes_json,
                 )
                 .await?;
-                create_session(pool, jar, user_id, redirect).await
+                create_cookie(pool, jar, user_id, redirect).await
             }
             None => {
                 if !provider.is_user_creation_allowed {
@@ -850,7 +937,7 @@ async fn acs(
                 sqlx::query!(
                     r#"
                     INSERT INTO
-                        auth_saml_credentials
+                        auth_saml_provider_credentials
                         (user_id, provider_id, name_id, attributes)
                     VALUES ($1, $2, $3, $4)
                     "#,
@@ -862,7 +949,7 @@ async fn acs(
                 .execute(pool)
                 .await?;
 
-                create_session(pool, jar, user_id, redirect).await
+                create_cookie(pool, jar, user_id, redirect).await
             }
         },
     }
@@ -901,7 +988,7 @@ async fn create_saml_request(
     let mut encoder = DeflateEncoder::new(Vec::new(), Compression::default());
     encoder.write_all(xml.as_bytes())?;
     let bytes = encoder.finish()?;
-    let encoded = BASE64_STANDARD.encode(bytes);
+    let encoded = Base64::encode_string(&bytes);
     let uri = format!(
         "{}?SAMLRequest={}",
         &destination,
@@ -909,7 +996,7 @@ async fn create_saml_request(
     );
     sqlx::query!(
         r#"
-        INSERT INTO auth_saml_requests (id, user_id, provider_id, redirect)
+        INSERT INTO auth_saml_provider_requests (id, user_id, provider_id, redirect)
         VALUES ($1, $2, $3, $4)
         "#,
         uuid,

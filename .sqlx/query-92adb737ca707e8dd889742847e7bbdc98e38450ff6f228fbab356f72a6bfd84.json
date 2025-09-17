@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE auth_saml_provider_requests\n        SET completed_at = now(), name_id = $1, attributes = $2\n        WHERE id = $3\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Jsonb",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "92adb737ca707e8dd889742847e7bbdc98e38450ff6f228fbab356f72a6bfd84"
+}

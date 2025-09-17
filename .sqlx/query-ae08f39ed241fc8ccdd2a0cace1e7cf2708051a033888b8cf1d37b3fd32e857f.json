@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO\n            auth_oauth2_client_refresh_tokens\n            (id, client_id, user_id, scopes)\n        VALUES\n            ($1, $2, $3, $4)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ae08f39ed241fc8ccdd2a0cace1e7cf2708051a033888b8cf1d37b3fd32e857f"
+}

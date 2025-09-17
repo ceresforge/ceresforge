@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT users.id, auth_local_credentials.password_hash AS \"password_hash?\"\n        FROM users\n        LEFT JOIN auth_local_credentials\n        ON users.id = auth_local_credentials.user_id\n        WHERE users.username = $1\n        ",
+  "query": "\n        SELECT\n            users.id,\n            auth_local_credentials.password_hash AS \"password_hash?\"\n        FROM users\n        LEFT JOIN auth_local_credentials\n        ON users.id = auth_local_credentials.user_id\n        WHERE users.username = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -24,5 +24,5 @@
       false
     ]
   },
-  "hash": "451256795206bf4cd934749683b71373dddc1fc540ac96d740c1fae504e26a6a"
+  "hash": "e4d7575eb794b6b1578113345f7e59c120d3431091291710891c8d7ca362f9d4"
 }

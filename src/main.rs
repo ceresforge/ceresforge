@@ -1,11 +1,28 @@
+macro_rules! generate_secure_string {
+    ($length:expr) => {{
+        use base64ct::{Base64UrlUnpadded, Encoding};
+        use rand::RngCore;
+
+        let mut bytes = [0u8; $length];
+        rand::rng().fill_bytes(&mut bytes);
+        Base64UrlUnpadded::encode_string(&bytes)
+    }};
+}
+
 mod api;
 mod auth;
 mod extract;
 mod forgejo;
 mod frontend;
+mod openid_configuration;
 mod record;
 mod webfinger;
 
+use crate::{frontend::FrontendResult, record::User};
+use argon2::{
+    Argon2,
+    password_hash::{PasswordHasher, SaltString, rand_core::OsRng},
+};
 use auth::login_required_uri;
 use axum::{
     Router,
@@ -15,18 +32,15 @@ use axum::{
     routing::get,
 };
 use axum_extra::extract::cookie::Key;
+use base64ct::{Base64UrlUnpadded, Encoding};
 use clap::{Parser, Subcommand};
+use maud::{DOCTYPE, Markup, html};
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use std::io::{Write, stdin, stdout};
 use std::time::Duration;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
-use argon2::{
-    Argon2,
-    password_hash::{PasswordHasher, SaltString, rand_core::OsRng},
-};
 
 const CSS_PATH: &str = "/ceresforge-0.0.2-dev.2.css";
 const SVG_PATH: &str = "/ceresforge-0.0.2-dev.1.svg";
@@ -40,6 +54,8 @@ struct Args {
 #[derive(Debug, Subcommand)]
 enum Command {
     CreateAdmin,
+    CreateOauth2Client,
+    GenerateCookieKey,
     Migrate,
     Server,
 }
@@ -113,10 +129,6 @@ async fn svg() -> impl IntoResponse {
         include_str!("../frontend/ceresforge.svg"),
     )
 }
-
-use maud::{DOCTYPE, Markup, html};
-
-use crate::{frontend::FrontendResult, record::User};
 
 pub fn base(title: &str, description: &str, body: Markup) -> Markup {
     html! {
@@ -321,13 +333,12 @@ async fn app() -> Router {
         .await
         .unwrap();
 
+    let cookie_key = std::env::var("COOKIE_KEY").unwrap();
+
     let key = Key::from(
-        base64::Engine::decode(
-            &base64::prelude::BASE64_STANDARD,
-            std::env::var("COOKIE_KEY").unwrap(),
-        )
-        .unwrap()
-        .as_slice(),
+        Base64UrlUnpadded::decode_vec(&cookie_key)
+            .unwrap()
+            .as_slice(),
     );
 
     let state = AppState { pool, key };
@@ -342,12 +353,24 @@ async fn app() -> Router {
         .route("/inter-normal-4.1.woff2", get(inter_normal))
         .route("/inter-italic-4.1.woff2", get(inter_italic))
         .route(SVG_PATH, get(svg))
-        .route("/.well-known", get(crate::webfinger::handler))
+        .route("/.well-known/webfinger", get(crate::webfinger::handler))
+        .route(
+            "/.well-known/openid-configuration",
+            get(crate::openid_configuration::handler),
+        )
         .nest("/auth", auth::routes())
         .nest_service("/api", api::routes())
         .method_not_allowed_fallback(method_not_allowed_fallback)
         .fallback(fallback)
         .with_state(state)
+}
+
+fn generate_secure_hash(password: &str) -> Result<String, argon2::password_hash::Error> {
+    let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+    Ok(argon2
+        .hash_password(password.as_bytes(), &salt)?
+        .to_string())
 }
 
 async fn create_admin() {
@@ -393,12 +416,7 @@ async fn create_admin() {
     .unwrap()
     .id;
 
-    let salt = SaltString::generate(&mut OsRng);
-    let argon2 = Argon2::default();
-    let password_hash = argon2
-        .hash_password(password.as_bytes(), &salt)
-        .unwrap()
-        .to_string();
+    let password_hash = generate_secure_hash(&password).unwrap();
 
     sqlx::query!(
         "INSERT INTO auth_local_credentials (user_id, password_hash) VALUES ($1, $2)",
@@ -408,6 +426,42 @@ async fn create_admin() {
     .execute(&pool)
     .await
     .unwrap();
+}
+
+async fn create_oauth2_client() {
+    let pool = PgPoolOptions::new()
+        .acquire_timeout(Duration::from_secs(1))
+        .max_connections(1)
+        .connect(&std::env::var("DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+
+    print!("Name: ");
+    stdout().flush().unwrap();
+    let mut name = String::new();
+    stdin().read_line(&mut name).unwrap();
+    let name = name.trim();
+
+    print!("Redirect URI: ");
+    stdout().flush().unwrap();
+    let mut redirect_uri = String::new();
+    stdin().read_line(&mut redirect_uri).unwrap();
+    let redirect_uri = redirect_uri.trim();
+
+    let client = crate::auth::oauth2::create_client(&pool, &name)
+        .await
+        .unwrap();
+
+    crate::auth::oauth2::create_client_redirect_uri(&pool, &client.id, redirect_uri)
+        .await
+        .unwrap();
+
+    println!("Client ID: {}", client.id);
+    println!("Client Secret: {}", client.secret);
+}
+
+async fn generate_cookie_key() {
+    println!("COOKIE_KEY: {}", generate_secure_string!(64))
 }
 
 async fn migrate() {
@@ -474,6 +528,16 @@ fn main() {
             .build()
             .unwrap()
             .block_on(create_admin()),
+        Command::CreateOauth2Client => tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(create_oauth2_client()),
+        Command::GenerateCookieKey => tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(generate_cookie_key()),
         Command::Migrate => tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()

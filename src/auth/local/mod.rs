@@ -1,4 +1,4 @@
-use super::{Params, already_logged_in, create_session, redirect_uri};
+use super::{Params, already_logged_in, create_cookie, redirect_uri};
 use crate::{AppState, base, frontend::FrontendResult};
 use crate::{auth::AuthError, record::User};
 use argon2::{
@@ -73,7 +73,9 @@ async fn verify(
 ) -> FrontendResult<Result<i64, AuthError>> {
     let optional = sqlx::query!(
         r#"
-        SELECT users.id, auth_local_credentials.password_hash AS "password_hash?"
+        SELECT
+            users.id,
+            auth_local_credentials.password_hash AS "password_hash?"
         FROM users
         LEFT JOIN auth_local_credentials
         ON users.id = auth_local_credentials.user_id
@@ -125,7 +127,7 @@ async fn login_post(
     let username = &payload.username;
     let result = verify(pool, username, &payload.password).await?;
     match result {
-        Ok(user_id) => create_session(pool, jar, user_id, redirect).await,
+        Ok(user_id) => create_cookie(pool, jar, user_id, redirect).await,
         Err(err) => match err {
             AuthError::InvalidPassword => Ok(login_form(Some(err), Some(username), redirect)),
             _ => Ok(login_form(Some(err), None, redirect)),

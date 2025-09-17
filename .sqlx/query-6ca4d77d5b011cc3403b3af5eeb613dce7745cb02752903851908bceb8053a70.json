@@ -30,31 +30,26 @@
       },
       {
         "ordinal": 5,
-        "name": "certificate",
-        "type_info": "Text"
-      },
-      {
-        "ordinal": 6,
         "name": "requested_attributes",
         "type_info": "Jsonb"
       },
       {
-        "ordinal": 7,
+        "ordinal": 6,
         "name": "mapped_attributes",
         "type_info": "Jsonb"
       },
       {
-        "ordinal": 8,
+        "ordinal": 7,
         "name": "is_user_creation_allowed",
         "type_info": "Bool"
       },
       {
-        "ordinal": 9,
+        "ordinal": 8,
         "name": "created_at",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 10,
+        "ordinal": 9,
         "name": "updated_at",
         "type_info": "Timestamptz"
       }
@@ -65,7 +60,6 @@
       ]
     },
     "nullable": [
-      false,
       false,
       false,
       false,

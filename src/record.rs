@@ -39,7 +39,6 @@ pub struct SamlProvider {
     pub name: String,
     pub metadata_url: String,
     pub sso_url: String,
-    pub certificate: String,
     pub requested_attributes: JsonValue,
     pub mapped_attributes: JsonValue,
     pub is_user_creation_allowed: bool,

@@ -1,17 +1,6 @@
-macro_rules! generate_secure_string {
-    ($length:expr) => {{
-        use base64ct::{Base64UrlUnpadded, Encoding};
-        use rand::RngCore;
-
-        let mut bytes = [0u8; $length];
-        rand::rng().fill_bytes(&mut bytes);
-        Base64UrlUnpadded::encode_string(&bytes)
-    }};
-}
-
 mod local;
-mod oauth2;
-mod saml;
+pub mod oauth2;
+pub mod saml; // TODO: Change to private
 
 use crate::frontend::FrontendResult;
 use crate::record::User;
@@ -124,25 +113,25 @@ fn not_logged_in() -> Response {
     .into_response()
 }
 
-fn generate_session_id() -> String {
+fn generate_cookie_id() -> String {
     generate_secure_string!(32)
 }
 
-async fn create_session(
+async fn create_cookie(
     pool: &PgPool,
     jar: PrivateCookieJar,
     user_id: i64,
     redirect: Option<&str>,
 ) -> FrontendResult<Response> {
-    let session_id = generate_session_id();
+    let id = generate_cookie_id();
     sqlx::query!(
-        "INSERT INTO sessions (id, user_id) VALUES ($1, $2)",
-        session_id,
+        "INSERT INTO auth_cookies (id, user_id) VALUES ($1, $2)",
+        id,
         user_id
     )
     .execute(pool)
     .await?;
-    let cookie = Cookie::build(("session_id", session_id))
+    let cookie = Cookie::build(("id", id))
         .path("/")
         .http_only(true)
         .secure(true)
@@ -212,15 +201,15 @@ async fn logout(
     }
     let pool = &state.pool;
     let redirect = Redirect::to("/").into_response();
-    match jar.get("session_id") {
+    match jar.get("id") {
         None => Ok(redirect),
         Some(cookie) => {
-            let session_id = cookie.value_trimmed().to_string();
-            sqlx::query!("DELETE FROM sessions WHERE id = $1", &session_id)
+            let id = cookie.value_trimmed().to_string();
+            sqlx::query!("DELETE FROM auth_cookies WHERE id = $1", &id)
                 .execute(pool)
                 .await?;
 
-            let cookie = Cookie::build(("session_id", session_id))
+            let cookie = Cookie::build(("id", id))
                 .path("/")
                 .http_only(true)
                 .secure(true)

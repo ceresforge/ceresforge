@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO\n            auth_oauth2_client_authorization_codes\n            (code, client_id, user_id, redirect_uri, scopes)\n        VALUES ($1, $2, $3, $4, $5)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "99d72db20bc99d7fba9cde5c35eedc8a6b5fe4073e7de1fc4e71d1ef1e5ff900"
+}

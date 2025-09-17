@@ -18,19 +18,19 @@ impl OptionalFromRequestParts<AppState> for User {
             let jar = PrivateCookieJar::<Key>::from_request_parts(parts, state)
                 .await
                 .ok()?;
-            let cookie = jar.get("session_id")?;
-            let session_id = cookie.value_trimmed();
+            let cookie = jar.get("id")?;
+            let id = cookie.value_trimmed();
             sqlx::query_as!(
                 User,
                 r#"
                 SELECT users.*
-                FROM sessions
+                FROM auth_cookies
                 INNER JOIN users
-                ON sessions.user_id = users.id
-                WHERE sessions.id = $1
-                AND sessions.expires_at > now()
+                ON auth_cookies.user_id = users.id
+                WHERE auth_cookies.id = $1
+                AND auth_cookies.expires_at > now()
                 "#,
-                session_id
+                id
             )
             .fetch_optional(pool)
             .await

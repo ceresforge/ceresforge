@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE\n            auth_oauth2_client_authorization_codes\n        SET\n            completed_at = now()\n        WHERE\n            code = $1\n            AND client_id = $2\n            AND redirect_uri = $3\n            AND expires_at > now()\n            AND completed_at IS NULL\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c2d2e18b6a3d2862f1fabe58d4bb5d8e3fe21801d77fb87cdea0c91c37f1af7f"
+}

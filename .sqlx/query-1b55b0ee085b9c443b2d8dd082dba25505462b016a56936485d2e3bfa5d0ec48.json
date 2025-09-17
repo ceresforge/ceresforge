@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    INSERT INTO\n                        auth_saml_provider_credentials\n                        (user_id, provider_id, name_id, attributes)\n                    VALUES ($1, $2, $3, $4)\n                    ON CONFLICT (user_id, provider_id)\n                    DO NOTHING\n                    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Text",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1b55b0ee085b9c443b2d8dd082dba25505462b016a56936485d2e3bfa5d0ec48"
+}

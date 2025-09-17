@@ -69,8 +69,8 @@ impl From<axum::http::header::InvalidHeaderValue> for FrontendError {
     }
 }
 
-impl From<base64::DecodeError> for FrontendError {
-    fn from(err: base64::DecodeError) -> FrontendError {
+impl From<base64ct::Error> for FrontendError {
+    fn from(err: base64ct::Error) -> FrontendError {
         FrontendError::InternalError(InternalError::new(Box::new(err)))
     }
 }

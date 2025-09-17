@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT users.*\n                FROM sessions\n                INNER JOIN users\n                ON sessions.user_id = users.id\n                WHERE sessions.id = $1\n                AND sessions.expires_at > now()\n                ",
+  "query": "\n                SELECT users.*\n                FROM auth_cookies\n                INNER JOIN users\n                ON auth_cookies.user_id = users.id\n                WHERE auth_cookies.id = $1\n                AND auth_cookies.expires_at > now()\n                ",
   "describe": {
     "columns": [
       {
@@ -60,5 +60,5 @@
       false
     ]
   },
-  "hash": "d8833e76c3a9f8aaf52158f43a39a8ae2e4775737c0a56ec88659291ce331dd7"
+  "hash": "88178b8d674ad05c8efbf678f8d4f53304c6ccb7959f97954f860feb4cc557a1"
 }

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM sessions WHERE id = $1",
+  "query": "DELETE FROM auth_cookies WHERE id = $1",
   "describe": {
     "columns": [],
     "parameters": {
@@ -10,5 +10,5 @@
     },
     "nullable": []
   },
-  "hash": "11e96cfd8c2736f13ce55975ea910dd68640f6f14e38a4b3342d514804e3de27"
+  "hash": "6fbc81a183d2fab8b6340e7b9003f8d8c5b8c75131b810f713e82009507f8267"
 }

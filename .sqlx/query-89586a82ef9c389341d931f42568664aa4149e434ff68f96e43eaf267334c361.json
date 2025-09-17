@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO sessions (id, user_id) VALUES ($1, $2)",
+  "query": "INSERT INTO auth_cookies (id, user_id) VALUES ($1, $2)",
   "describe": {
     "columns": [],
     "parameters": {
@@ -11,5 +11,5 @@
     },
     "nullable": []
   },
-  "hash": "59ecfc0f3f0a721ba2fb8b4a953313e0b0701ae34c1e609f3f92a4009d6ee4b3"
+  "hash": "89586a82ef9c389341d931f42568664aa4149e434ff68f96e43eaf267334c361"
 }
