@@ -4,6 +4,8 @@ FROM $CONTAINER_IMAGE AS build
 RUN DEBIAN_FRONTEND=noninteractive apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y \
         build-essential \
+        libssl-dev \
+        pkg-config \
         rustup \
     && rm -rf /var/lib/apt/lists/* \
     && rustup default stable
