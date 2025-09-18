@@ -626,12 +626,16 @@ async fn verify_response(provider: &SamlProvider, xml: &str) -> Result<bool, std
         .arg("Response")
         .arg("--trusted-pem")
         .arg(pem_path)
-        .arg("/dev/stdin").spawn().unwrap();
+        .arg("/dev/stdin")
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+
     {
         let mut stdin = child.stdin.take().unwrap();
         stdin.write_all(xml.as_bytes()).unwrap();
     }
-    
+
     let output = child.wait_with_output().unwrap();
     Ok(output.status.success())
 }
@@ -731,7 +735,11 @@ async fn get_pem(provider: &SamlProvider) -> PathBuf {
     std::fs::create_dir_all(&saml_dir).unwrap();
     let pem_path = saml_dir.join(format!("{}.pem", &provider.slug));
 
-    match std::fs::OpenOptions::new().write(true).create_new(true).open(&pem_path) {
+    match std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&pem_path)
+    {
         Ok(mut file) => {
             let pem = format!(
                 "-----BEGIN CERTIFICATE-----\n{}\n-----END CERTIFICATE-----\n",
