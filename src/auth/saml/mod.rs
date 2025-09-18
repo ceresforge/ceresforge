@@ -969,9 +969,9 @@ async fn create_saml_request(
     user_id: Option<i64>,
     redirect: Option<String>,
 ) -> FrontendResult<Response> {
-    let domain = std::env::var("DOMAIN")?;
-    let entity_id = format!("{}/auth/saml/metadata/{}", &domain, &provider.slug);
-    let assertion_consumer_service_url = format!("{}/auth/saml/acs/{}", &domain, &provider.slug);
+    let base_url = std::env::var("BASE_URL")?;
+    let entity_id = format!("{}/auth/saml/metadata/{}", &base_url, &provider.slug);
+    let assertion_consumer_service_url = format!("{}/auth/saml/acs/{}", &base_url, &provider.slug);
     let destination = provider.sso_url.clone();
 
     let name_id_policy = NameIdPolicy {
@@ -1063,9 +1063,9 @@ async fn metadata(
         None => return Ok(plain_404()),
     };
 
-    let domain = std::env::var("DOMAIN")?;
-    let entity_id = format!("{}/auth/saml/metadata/{}", &domain, &provider.slug);
-    let acs_location = format!("{}/auth/saml/acs/{}", &domain, &provider.slug);
+    let base_url = std::env::var("BASE_URL")?;
+    let entity_id = format!("{}/auth/saml/metadata/{}", &base_url, &provider.slug);
+    let acs_location = format!("{}/auth/saml/acs/{}", &base_url, &provider.slug);
 
     let requested_attributes = match provider.requested_attributes.as_array() {
         Some(v) => v,

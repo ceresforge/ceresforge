@@ -40,16 +40,16 @@ pub async fn handler(Query(payload): Query<WebFingerPayload>) -> ApiResult<Respo
         return Ok((StatusCode::BAD_REQUEST, "Resource must start with acct:").into_response());
     };
     // TODO: Check user
-    let Some((_user, acct_domain)) = acct.split_once('@') else {
+    let Some((_user, domain)) = acct.split_once('@') else {
         return Ok((StatusCode::BAD_REQUEST, "Invalid resource format").into_response());
     };
 
-    let domain = std::env::var("DOMAIN")?;
-    let expected_domain = Url::parse(&domain).unwrap();
-    if expected_domain.host_str().unwrap() != acct_domain {
+    let base_url = std::env::var("BASE_URL")?;
+    let url = Url::parse(&base_url).unwrap();
+    if url.host_str().unwrap() != domain {
         return Ok((StatusCode::BAD_REQUEST, "No match").into_response());
     }
-    let oidc_discovery_url = format!("{}/.well-known/openid-configuration", domain);
+    let oidc_discovery_url = format!("{}/.well-known/openid-configuration", &base_url);
 
     let jrd = Jrd {
         subject: payload.resource,
