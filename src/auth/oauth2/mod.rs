@@ -49,6 +49,8 @@ struct TokenGrant {
     access_token: String,
     token_type: String,
     refresh_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    id_token: Option<String>,
 }
 
 fn generate_authorization_code() -> String {
@@ -167,9 +169,17 @@ async fn authorize_post(
     if params.response_type != "code" {
         return Ok(plain_400());
     }
-    if params.scope.is_some() {
-        return Ok(plain_400());
-    }
+    let scopes = match params.scope {
+        None => "".to_string(),
+        Some(s) => {
+            if s == "openid" {
+                s
+            }
+            else {
+                return Ok(plain_400());
+            }
+        },
+    };
 
     let client_id = params.client_id.as_str();
 
@@ -213,7 +223,7 @@ async fn authorize_post(
         client_id,
         user.id,
         redirect_uri,
-        ""
+        scopes
     )
     .execute(pool)
     .await?;
@@ -234,6 +244,8 @@ async fn token(
     if payload.grant_type != "authorization_code" {
         return Ok(plain_400());
     }
+    let client_id = payload.client_id;
+
     let pool = &state.pool;
     let record = sqlx::query!(
         r#"
@@ -253,7 +265,7 @@ async fn token(
             AND ac.completed_at IS NULL
         "#,
         &payload.code,
-        &payload.client_id,
+        &client_id,
         &payload.redirect_uri,
     )
     .fetch_optional(pool)
@@ -262,6 +274,8 @@ async fn token(
         None => return Ok(plain_400()),
         Some(record) => record,
     };
+    
+    let user_id = record.user_id;
 
     let parsed_hash = PasswordHash::new(&record.secret_hash)?;
     let verified =
@@ -284,7 +298,7 @@ async fn token(
             AND completed_at IS NULL
         "#,
         &payload.code,
-        &payload.client_id,
+        &client_id,
         &payload.redirect_uri,
     )
     .execute(pool)
@@ -304,8 +318,8 @@ async fn token(
             ($1, $2, $3, $4)
         "#,
         &access_token,
-        &payload.client_id,
-        record.user_id,
+        &client_id,
+        user_id,
         record.scopes,
     )
     .execute(pool)
@@ -322,17 +336,23 @@ async fn token(
             ($1, $2, $3, $4)
         "#,
         &access_token,
-        &payload.client_id,
-        record.user_id,
+        &client_id,
+        user_id,
         record.scopes,
     )
     .execute(pool)
     .await?;
 
+    let id_token: Option<String> = match record.scopes.as_str() {
+        "" => None,
+        "openid" => Some(crate::jwt::generate_id_token(&state.jwt_rsa_key, user_id, &client_id)),
+        _ => None,
+    };
     let grant = TokenGrant {
         access_token,
         token_type: "Bearer".to_string(),
         refresh_token,
+        id_token,
     };
 
     let mut headers = HeaderMap::new();

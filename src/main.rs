@@ -14,6 +14,7 @@ mod auth;
 mod extract;
 mod forgejo;
 mod frontend;
+mod jwt;
 mod openid_configuration;
 mod record;
 mod webfinger;
@@ -41,6 +42,7 @@ use std::time::Duration;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use rsa::{RsaPrivateKey, pkcs8::DecodePrivateKey};
 
 const CSS_PATH: &str = "/ceresforge-0.0.2-dev.2.css";
 const SVG_PATH: &str = "/ceresforge-0.0.2-dev.1.svg";
@@ -64,6 +66,7 @@ enum Command {
 struct AppState {
     pool: PgPool,
     key: Key,
+    jwt_rsa_key: RsaPrivateKey,
 }
 
 impl FromRef<AppState> for Key {
@@ -340,8 +343,13 @@ async fn app() -> Router {
             .unwrap()
             .as_slice(),
     );
+    
+    let jwt_rsa_key_pem = std::env::var("JWT_RSA_KEY").unwrap();
+    let jwt_rsa_key_pem = Base64UrlUnpadded::decode_vec(&jwt_rsa_key_pem).unwrap();
+    let jwt_rsa_key_pem = String::from_utf8(jwt_rsa_key_pem).unwrap();
+    let jwt_rsa_key = RsaPrivateKey::from_pkcs8_pem(&jwt_rsa_key_pem).unwrap();
 
-    let state = AppState { pool, key };
+    let state = AppState { pool, key, jwt_rsa_key };
 
     Router::new()
         .route("/", get(home))
@@ -354,6 +362,7 @@ async fn app() -> Router {
         .route("/inter-italic-4.1.woff2", get(inter_italic))
         .route(SVG_PATH, get(svg))
         .route("/.well-known/webfinger", get(crate::webfinger::handler))
+        .route("/.well-known/jwks.json", get(crate::jwt::jwks_handler))
         .route(
             "/.well-known/openid-configuration",
             get(crate::openid_configuration::handler),

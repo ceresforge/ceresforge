@@ -12,6 +12,11 @@ struct OpenidConfiguration {
     authorization_endpoint: String,
     token_endpoint: String,
     jwks_uri: String,
+    response_types_supported: Vec<String>,
+    subject_types_supported: Vec<String>,
+    id_token_signing_alg_values_supported: Vec<String>,
+    token_endpoint_auth_methods_supported: Vec<String>,
+    scopes_supported: Vec<String>,
 }
 
 pub async fn handler() -> ApiResult<Response> {
@@ -25,6 +30,11 @@ pub async fn handler() -> ApiResult<Response> {
         authorization_endpoint,
         token_endpoint,
         jwks_uri,
+        response_types_supported: vec!["code".to_string()],
+        subject_types_supported: vec!["public".to_string()],
+        id_token_signing_alg_values_supported: vec!["RS256".to_string()],
+        token_endpoint_auth_methods_supported: vec!["client_secret_post".to_string()],
+        scopes_supported: vec!["openid".to_string()],
     };
     Ok(Json(configuration).into_response())
 }
