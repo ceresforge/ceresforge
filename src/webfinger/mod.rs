@@ -30,7 +30,6 @@ struct Jrd {
 }
 
 pub async fn handler(Query(payload): Query<WebFingerPayload>) -> ApiResult<Response> {
-    dbg!(&payload);
     if payload.rel != "http://openid.net/specs/connect/1.0/issuer" {
         return Ok((StatusCode::NOT_FOUND).into_response());
     }
@@ -49,14 +48,13 @@ pub async fn handler(Query(payload): Query<WebFingerPayload>) -> ApiResult<Respo
     if url.host_str().unwrap() != domain {
         return Ok((StatusCode::BAD_REQUEST, "No match").into_response());
     }
-    let oidc_discovery_url = format!("{}/.well-known/openid-configuration", &base_url);
 
     let jrd = Jrd {
         subject: payload.resource,
         links: vec![JrdLink {
             rel: "http://openid.net/specs/connect/1.0/issuer".to_string(),
             type_field: "application/json".to_string(),
-            href: oidc_discovery_url,
+            href: base_url,
         }],
     };
 
