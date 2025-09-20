@@ -19,8 +19,6 @@ pub struct WebFingerPayload {
 #[derive(Debug, Serialize)]
 struct JrdLink {
     rel: String,
-    #[serde(rename = "type")]
-    type_field: String,
     href: String,
 }
 
@@ -60,7 +58,6 @@ pub async fn handler(
         subject: payload.resource,
         links: vec![JrdLink {
             rel: "http://openid.net/specs/connect/1.0/issuer".to_string(),
-            type_field: "application/json".to_string(),
             href: base_url,
         }],
     };
