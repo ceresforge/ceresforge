@@ -1,8 +1,11 @@
-use crate::{api::ApiResult, AppState};
+use crate::{AppState, api::ApiResult};
 
 use crate::users::sql::is_admin;
 use axum::{
-    extract::{Query, State}, http::{header, HeaderMap, StatusCode}, response::{IntoResponse, Response}, Json
+    Json,
+    extract::{Query, State},
+    http::{HeaderMap, StatusCode, header},
+    response::{IntoResponse, Response},
 };
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -27,7 +30,10 @@ struct Jrd {
     links: Vec<JrdLink>,
 }
 
-pub async fn handler(State(state): State<AppState>, Query(payload): Query<WebFingerPayload>) -> ApiResult<Response> {
+pub async fn handler(
+    State(state): State<AppState>,
+    Query(payload): Query<WebFingerPayload>,
+) -> ApiResult<Response> {
     if payload.rel != "http://openid.net/specs/connect/1.0/issuer" {
         return Ok((StatusCode::NOT_FOUND).into_response());
     }
