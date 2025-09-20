@@ -1,6 +1,6 @@
+use axum::Json;
 use axum::extract::State;
 use axum::response::IntoResponse;
-use axum::Json;
 use base64ct::{Base64UrlUnpadded, Encoding};
 use rsa::pkcs1v15::SigningKey;
 use rsa::sha2::{Digest, Sha256};
@@ -8,7 +8,7 @@ use rsa::signature::{RandomizedSigner, SignatureEncoding};
 use rsa::traits::PublicKeyParts;
 use rsa::{RsaPrivateKey, RsaPublicKey};
 use serde::Serialize;
-use time::{OffsetDateTime, Duration};
+use time::{Duration, OffsetDateTime};
 
 use crate::AppState;
 
@@ -70,7 +70,7 @@ pub fn calculate_jwk_thumbprint(public_key: &RsaPublicKey) -> String {
 pub async fn jwks_handler(State(state): State<AppState>) -> impl IntoResponse {
     let private_key = state.jwt_rsa_key;
     let public_key = RsaPublicKey::from(&private_key);
-    
+
     let kid = calculate_jwk_thumbprint(&public_key);
     let n = public_key.n().to_be_bytes_trimmed_vartime();
     let n = base64ct::Base64UrlUnpadded::encode_string(&n);
@@ -78,19 +78,18 @@ pub async fn jwks_handler(State(state): State<AppState>) -> impl IntoResponse {
     let e = base64ct::Base64UrlUnpadded::encode_string(&e);
 
     let jwks = Jwks {
-        keys: vec![Jwk{
+        keys: vec![Jwk {
             kty: "RSA",
             key_use: "sig",
             alg: "RS256",
             kid,
             n,
             e,
-        }]
+        }],
     };
-    
+
     Json(jwks)
 }
-
 
 pub fn generate_id_token(private_key: &RsaPrivateKey, user_id: i64, client_id: &str) -> String {
     let public_key = RsaPublicKey::from(private_key);
@@ -134,6 +133,6 @@ fn generate_jwt(header: &Header, payload: &Payload, private_key: &RsaPrivateKey)
     let mut rng = rand::rng();
     let signature = signing_key.sign_with_rng(&mut rng, unsigned.as_bytes());
     let signature = Base64UrlUnpadded::encode_string(&signature.to_vec());
-    
+
     format!("{}.{}", unsigned, signature)
 }

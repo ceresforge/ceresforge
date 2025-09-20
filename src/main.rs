@@ -17,6 +17,7 @@ mod frontend;
 mod jwt;
 mod openid_configuration;
 mod record;
+mod users;
 mod webfinger;
 
 use crate::{frontend::FrontendResult, record::User};
@@ -36,13 +37,13 @@ use axum_extra::extract::cookie::Key;
 use base64ct::{Base64UrlUnpadded, Encoding};
 use clap::{Parser, Subcommand};
 use maud::{DOCTYPE, Markup, html};
+use rsa::{RsaPrivateKey, pkcs8::DecodePrivateKey};
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use std::io::{Write, stdin, stdout};
 use std::time::Duration;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use rsa::{RsaPrivateKey, pkcs8::DecodePrivateKey};
 
 const CSS_PATH: &str = "/ceresforge-0.0.2-dev.2.css";
 const SVG_PATH: &str = "/ceresforge-0.0.2-dev.1.svg";
@@ -343,13 +344,17 @@ async fn app() -> Router {
             .unwrap()
             .as_slice(),
     );
-    
+
     let jwt_rsa_key_pem = std::env::var("JWT_RSA_KEY").unwrap();
     let jwt_rsa_key_pem = Base64UrlUnpadded::decode_vec(&jwt_rsa_key_pem).unwrap();
     let jwt_rsa_key_pem = String::from_utf8(jwt_rsa_key_pem).unwrap();
     let jwt_rsa_key = RsaPrivateKey::from_pkcs8_pem(&jwt_rsa_key_pem).unwrap();
 
-    let state = AppState { pool, key, jwt_rsa_key };
+    let state = AppState {
+        pool,
+        key,
+        jwt_rsa_key,
+    };
 
     Router::new()
         .route("/", get(home))

@@ -174,11 +174,10 @@ async fn authorize_post(
         Some(s) => {
             if s == "openid" {
                 s
-            }
-            else {
+            } else {
                 return Ok(plain_400());
             }
-        },
+        }
     };
 
     let client_id = params.client_id.as_str();
@@ -278,10 +277,14 @@ async fn token(
     let user_id = record.user_id;
     let id_token: Option<String> = match record.scopes.as_str() {
         "" => None,
-        "openid" => Some(crate::jwt::generate_id_token(&state.jwt_rsa_key, user_id, &client_id)),
+        "openid" => Some(crate::jwt::generate_id_token(
+            &state.jwt_rsa_key,
+            user_id,
+            &client_id,
+        )),
         _ => return Ok(plain_400()),
     };
-    
+
     let parsed_hash = PasswordHash::new(&record.secret_hash)?;
     let verified =
         Argon2::default().verify_password(payload.client_secret.as_bytes(), &parsed_hash);

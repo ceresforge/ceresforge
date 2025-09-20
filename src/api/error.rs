@@ -96,6 +96,12 @@ impl From<axum::http::Error> for ApiError {
     }
 }
 
+impl From<sqlx::Error> for ApiError {
+    fn from(err: sqlx::Error) -> ApiError {
+        ApiError::InternalServerError(InternalServerError::new(Box::new(err)))
+    }
+}
+
 impl From<NotFound> for ApiError {
     fn from(err: NotFound) -> ApiError {
         ApiError::NotFound(err)

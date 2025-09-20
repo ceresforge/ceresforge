@@ -1,10 +1,8 @@
-use crate::api::ApiResult;
+use crate::{api::ApiResult, AppState};
 
+use crate::users::sql::is_admin;
 use axum::{
-    Json,
-    extract::Query,
-    http::{HeaderMap, StatusCode, header},
-    response::{IntoResponse, Response},
+    extract::{Query, State}, http::{header, HeaderMap, StatusCode}, response::{IntoResponse, Response}, Json
 };
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -29,7 +27,7 @@ struct Jrd {
     links: Vec<JrdLink>,
 }
 
-pub async fn handler(Query(payload): Query<WebFingerPayload>) -> ApiResult<Response> {
+pub async fn handler(State(state): State<AppState>, Query(payload): Query<WebFingerPayload>) -> ApiResult<Response> {
     if payload.rel != "http://openid.net/specs/connect/1.0/issuer" {
         return Ok((StatusCode::NOT_FOUND).into_response());
     }
@@ -38,10 +36,13 @@ pub async fn handler(Query(payload): Query<WebFingerPayload>) -> ApiResult<Respo
     } else {
         return Ok((StatusCode::BAD_REQUEST, "Resource must start with acct:").into_response());
     };
-    // TODO: Check user
-    let Some((_user, domain)) = acct.split_once('@') else {
+    let Some((username, domain)) = acct.split_once('@') else {
         return Ok((StatusCode::BAD_REQUEST, "Invalid resource format").into_response());
     };
+    let pool = &state.pool;
+    if !is_admin(pool, username).await? {
+        return Ok((StatusCode::BAD_REQUEST, "Invalid username").into_response());
+    }
 
     let base_url = std::env::var("BASE_URL")?;
     let url = Url::parse(&base_url).unwrap();
