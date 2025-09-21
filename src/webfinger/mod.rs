@@ -12,7 +12,7 @@ use url::Url;
 
 #[derive(Debug, Deserialize)]
 pub struct WebFingerPayload {
-    rel: String,
+    rel: Option<String>,
     resource: String,
 }
 
@@ -32,9 +32,12 @@ pub async fn handler(
     State(state): State<AppState>,
     Query(payload): Query<WebFingerPayload>,
 ) -> ApiResult<Response> {
-    if payload.rel != "http://openid.net/specs/connect/1.0/issuer" {
-        return Ok((StatusCode::NOT_FOUND).into_response());
-    }
+    let openid_issuer_rel = "http://openid.net/specs/connect/1.0/issuer";
+    match payload.rel {
+        None => (),
+        Some(s) if s == openid_issuer_rel => (),
+        Some(_) => return Ok((StatusCode::NOT_FOUND).into_response()),
+    };
     let acct = if let Some(s) = payload.resource.strip_prefix("acct:") {
         s
     } else {
@@ -57,7 +60,7 @@ pub async fn handler(
     let jrd = Jrd {
         subject: payload.resource,
         links: vec![JrdLink {
-            rel: "http://openid.net/specs/connect/1.0/issuer".to_string(),
+            rel: openid_issuer_rel.to_string(),
             href: base_url,
         }],
     };
