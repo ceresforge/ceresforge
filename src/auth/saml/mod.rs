@@ -367,7 +367,7 @@ struct Attribute {
     name_format: String,
 
     #[serde(rename = "AttributeValue")]
-    attribute_value: AttributeValue,
+    attribute_values: Vec<AttributeValue>,
 }
 
 #[allow(dead_code)]
@@ -553,11 +553,15 @@ fn transform_attributes(attribute_statement: &AttributeStatement) -> Vec<SamlAtt
     attribute_statement
         .attributes
         .iter()
-        .map(|a| SamlAttribute {
-            friendly_name: a.friendly_name.clone(),
-            name: a.name.clone(),
-            name_format: a.name_format.clone(),
-            value: a.attribute_value.to_string(),
+        .map(|a| {
+            let values: Vec<String> = a.attribute_values.iter().map(|v| v.to_string()).collect();
+            let values = values.join(" ");
+            SamlAttribute {
+                friendly_name: a.friendly_name.clone(),
+                name: a.name.clone(),
+                name_format: a.name_format.clone(),
+                value: values,
+            }
         })
         .collect()
 }
