@@ -13,7 +13,19 @@ use axum::{
 use maud::html;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use std::collections::HashSet;
+use thiserror::Error;
 use url::Url;
+
+#[derive(Debug, Error)]
+enum Oauth2Error {
+    #[error("invalid scope")]
+    InvalidScope,
+    #[error("unsupported scope")]
+    UnsupportedScope,
+    #[error(transparent)]
+    Sql(#[from] sqlx::Error),
+}
 
 #[derive(Debug)]
 pub struct Client {
@@ -71,6 +83,38 @@ fn generate_access_token() -> String {
 
 fn generate_refresh_token() -> String {
     generate_secure_string!(32)
+}
+
+fn get_scopes(scope: &str) -> Result<Vec<&str>, Oauth2Error> {
+    if scope.is_empty() {
+        return Ok(vec![]);
+    }
+    let supported_scopes = HashSet::from(["email", "openid", "profile"]);
+    scope
+        .split(' ')
+        .filter(|s| !s.is_empty())
+        .map(|scope_token| {
+            let is_valid = !scope_token.is_empty()
+                && scope_token.chars().all(|c| {
+                    c.is_ascii_lowercase()
+                        || c.is_ascii_digit()
+                        || c == '_'
+                        || c == '.'
+                        || c == ':'
+                        || c == '-'
+                });
+
+            if !is_valid {
+                return Err(Oauth2Error::InvalidScope);
+            }
+
+            if !supported_scopes.contains(&scope_token) {
+                return Err(Oauth2Error::UnsupportedScope);
+            }
+
+            Ok(scope_token)
+        })
+        .collect()
 }
 
 pub async fn create_client(pool: &PgPool, name: &str) -> Result<Client, sqlx::Error> {
@@ -170,14 +214,11 @@ async fn authorize_post(
         return Ok(plain_400());
     }
     let scopes = match params.scope {
-        None => "".to_string(),
-        Some(s) => {
-            if s == "openid" {
-                s
-            } else {
-                return Ok(plain_400());
-            }
-        }
+        Some(ref scope) => match get_scopes(scope) {
+            Ok(scopes) => scopes,
+            Err(_) => return Ok(plain_400()),
+        },
+        None => vec![],
     };
 
     let client_id = params.client_id.as_str();
@@ -211,18 +252,19 @@ async fn authorize_post(
     let code = generate_authorization_code();
 
     // TODO: Check rows_affected()
+    let scope = scopes.join(" ");
     let _result = sqlx::query!(
         r#"
         INSERT INTO
             auth_oauth2_client_authorization_codes
-            (code, client_id, user_id, redirect_uri, scopes)
+            (code, client_id, user_id, redirect_uri, scope)
         VALUES ($1, $2, $3, $4, $5)
         "#,
         code,
         client_id,
         user.id,
         redirect_uri,
-        scopes
+        scope
     )
     .execute(pool)
     .await?;
@@ -251,7 +293,7 @@ async fn token(
         SELECT
             c.secret_hash,
             ac.user_id,
-            ac.scopes
+            ac.scope
         FROM
             auth_oauth2_client_authorization_codes AS ac
         INNER JOIN
@@ -274,15 +316,15 @@ async fn token(
         Some(record) => record,
     };
 
+    let scopes = get_scopes(&record.scope).unwrap();
     let user_id = record.user_id;
-    let id_token: Option<String> = match record.scopes.as_str() {
-        "" => None,
-        "openid" => Some(crate::jwt::generate_id_token(
+    let id_token: Option<String> = match scopes.contains(&"openid") {
+        true => Some(crate::jwt::generate_id_token(
             &state.jwt_rsa_key,
             user_id,
             &client_id,
         )),
-        _ => return Ok(plain_400()),
+        false => None,
     };
 
     let parsed_hash = PasswordHash::new(&record.secret_hash)?;
@@ -321,32 +363,33 @@ async fn token(
         r#"
         INSERT INTO
             auth_oauth2_client_access_tokens
-            (id, client_id, user_id, scopes)
+            (id, client_id, user_id, scope)
         VALUES
             ($1, $2, $3, $4)
         "#,
         &access_token,
         &client_id,
         user_id,
-        record.scopes,
+        record.scope,
     )
     .execute(pool)
     .await?;
 
+    let scope = scopes.join(" ");
     let refresh_token = generate_refresh_token();
     // TODO: Check rows_affected
     let _result = sqlx::query!(
         r#"
         INSERT INTO
             auth_oauth2_client_refresh_tokens
-            (id, client_id, user_id, scopes)
+            (id, client_id, user_id, scope)
         VALUES
             ($1, $2, $3, $4)
         "#,
         &access_token,
         &client_id,
         user_id,
-        record.scopes,
+        scope,
     )
     .execute(pool)
     .await?;
