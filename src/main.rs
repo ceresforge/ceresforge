@@ -489,6 +489,7 @@ async fn migrate() {
     sqlx::migrate!().run(&pool).await.unwrap()
 }
 
+/*
 async fn csp_middleware(
     request: axum::extract::Request,
     next: axum::middleware::Next,
@@ -511,6 +512,7 @@ async fn csp_middleware(
 
     response
 }
+*/
 
 async fn server() {
     tracing_subscriber::registry()
@@ -529,7 +531,7 @@ async fn server() {
     let app = app().await.layer(
         ServiceBuilder::new()
             .layer(TraceLayer::new_for_http())
-            .layer(axum::middleware::from_fn(csp_middleware)),
+            // .layer(axum::middleware::from_fn(csp_middleware)),
     );
     axum::serve(listener, app).await.unwrap();
 }
