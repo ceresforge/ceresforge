@@ -529,9 +529,7 @@ async fn server() {
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
 
     let app = app().await.layer(
-        ServiceBuilder::new()
-            .layer(TraceLayer::new_for_http())
-            // .layer(axum::middleware::from_fn(csp_middleware)),
+        ServiceBuilder::new().layer(TraceLayer::new_for_http()), // .layer(axum::middleware::from_fn(csp_middleware)),
     );
     axum::serve(listener, app).await.unwrap();
 }

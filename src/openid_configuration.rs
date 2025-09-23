@@ -11,6 +11,7 @@ struct OpenidConfiguration {
     issuer: String,
     authorization_endpoint: String,
     token_endpoint: String,
+    userinfo_endpoint: String,
     jwks_uri: String,
     response_types_supported: Vec<String>,
     subject_types_supported: Vec<String>,
@@ -23,12 +24,14 @@ pub async fn handler() -> ApiResult<Response> {
     let base_url = std::env::var("BASE_URL")?;
     let authorization_endpoint = format!("{}/auth/oauth2/authorize", &base_url);
     let token_endpoint = format!("{}/auth/oauth2/token", &base_url);
+    let userinfo_endpoint = format!("{}/auth/oauth2/userinfo", &base_url);
     let jwks_uri = format!("{}/.well-known/jwks.json", &base_url);
 
     let configuration = OpenidConfiguration {
         issuer: base_url,
         authorization_endpoint,
         token_endpoint,
+        userinfo_endpoint,
         jwks_uri,
         response_types_supported: vec!["code".to_string()],
         subject_types_supported: vec!["public".to_string()],

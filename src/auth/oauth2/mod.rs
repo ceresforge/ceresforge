@@ -1,6 +1,11 @@
 use crate::{
-    AppState, auth::login_required_uri, base, frontend::FrontendResult, generate_secure_hash,
-    plain_400, record::User,
+    AppState,
+    api::{ApiResult, error::Unauthorized},
+    auth::login_required_uri,
+    base,
+    frontend::FrontendResult,
+    generate_secure_hash, plain_400,
+    record::User,
 };
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use axum::{
@@ -10,11 +15,14 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
     routing::{get, post},
 };
+use axum_extra::headers::{Authorization, Header, authorization::Bearer};
 use maud::html;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use sqlx::PgPool;
 use std::collections::HashSet;
 use thiserror::Error;
+use time::OffsetDateTime;
 use url::Url;
 
 #[derive(Debug, Error)]
@@ -408,8 +416,74 @@ async fn token(
     Ok((StatusCode::OK, headers, Json(grant).into_response()).into_response())
 }
 
+#[allow(dead_code)]
+struct AccessToken {
+    id: String,
+    client_id: String,
+    user_id: i64,
+    scope: String,
+    created_at: OffsetDateTime,
+    expires_at: OffsetDateTime,
+}
+
+impl AccessToken {
+    async fn from_headers(headers: &HeaderMap, state: &AppState) -> ApiResult<AccessToken> {
+        let pool = &state.pool;
+        let authorization = headers.get_all(axum::http::header::AUTHORIZATION);
+        let authorization = Authorization::<Bearer>::decode(&mut authorization.iter())?;
+        let result = sqlx::query_as!(
+            AccessToken,
+            r#"
+            SELECT *
+            FROM auth_oauth2_client_access_tokens
+            WHERE id = $1
+            AND expires_at > now()
+            "#,
+            authorization.token()
+        )
+        .fetch_optional(pool)
+        .await?;
+        match result {
+            Some(access_token) => Ok(access_token),
+            None => Err(Unauthorized::new().into()),
+        }
+    }
+}
+
+async fn userinfo(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<Response> {
+    let access_token = AccessToken::from_headers(&headers, &state).await?;
+    let scopes = get_scopes(&access_token.scope).map_err(|_| Unauthorized::new())?;
+    if !scopes.contains(&"openid") {
+        return Err(Unauthorized::new().into());
+    }
+    let pool = &state.pool;
+    let user = crate::users::sql::user_by_user_id(pool, access_token.user_id).await?;
+    
+    let mut claims = serde_json::Map::new();
+    claims.insert("sub".to_string(), json!(user.id.to_string()));
+    
+    if scopes.contains(&"profile") {
+        claims.insert("preferred_username".to_string(), json!(&user.username));
+        if let Some(ref first_name) = user.first_name {
+            claims.insert("given_name".to_string(), json!(first_name));
+        }
+        if let Some(ref last_name) = user.last_name {
+            claims.insert("family_name".to_string(), json!(last_name));
+        }
+    }
+
+    if scopes.contains(&"email") {
+        if let Some(ref email) = user.email {
+            claims.insert("email".to_string(), json!(email));
+        }
+    }
+
+    Ok(Json(claims).into_response())
+}
+
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/authorize", get(authorize_get).post(authorize_post))
         .route("/token", post(token))
+        .route("/userinfo", get(userinfo))
 }

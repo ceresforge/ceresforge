@@ -24,6 +24,7 @@ pub enum ApiError {
     UnsupportedUserAgent(UnsupportedUserAgent),
     MismatchedSignature(MismatchedSignature),
     UnsupportedWebhookEvent(UnsupportedWebhookEvent),
+    Unauthorized(Unauthorized),
     JsonError(JsonError),
 }
 
@@ -39,6 +40,7 @@ impl ApiError {
             ApiError::UnsupportedUserAgent(err) => err.status(),
             ApiError::MismatchedSignature(err) => err.status(),
             ApiError::UnsupportedWebhookEvent(err) => err.status(),
+            ApiError::Unauthorized(err) => err.status(),
             ApiError::JsonError(err) => err.status(),
         }
     }
@@ -56,6 +58,7 @@ impl std::fmt::Display for ApiError {
             ApiError::UnsupportedUserAgent(err) => write!(f, "{err}"),
             ApiError::MismatchedSignature(err) => write!(f, "{err}"),
             ApiError::UnsupportedWebhookEvent(err) => write!(f, "{err}"),
+            ApiError::Unauthorized(err) => write!(f, "{err}"),
             ApiError::JsonError(err) => write!(f, "{err}"),
         }
     }
@@ -73,6 +76,7 @@ impl Error for ApiError {
             ApiError::UnsupportedUserAgent(err) => err.source(),
             ApiError::MismatchedSignature(err) => err.source(),
             ApiError::UnsupportedWebhookEvent(err) => err.source(),
+            ApiError::Unauthorized(err) => err.source(),
             ApiError::JsonError(err) => err.source(),
         }
     }
@@ -93,6 +97,12 @@ impl From<std::env::VarError> for ApiError {
 impl From<axum::http::Error> for ApiError {
     fn from(err: axum::http::Error) -> ApiError {
         ApiError::InternalServerError(InternalServerError::new(Box::new(err)))
+    }
+}
+
+impl From<axum_extra::headers::Error> for ApiError {
+    fn from(_err: axum_extra::headers::Error) -> Self {
+        ApiError::MissingHeader(MissingHeader::new("unknown".to_string()))
     }
 }
 
@@ -147,6 +157,12 @@ impl From<MismatchedSignature> for ApiError {
 impl From<UnsupportedWebhookEvent> for ApiError {
     fn from(err: UnsupportedWebhookEvent) -> ApiError {
         ApiError::UnsupportedWebhookEvent(err)
+    }
+}
+
+impl From<Unauthorized> for ApiError {
+    fn from(err: Unauthorized) -> ApiError {
+        ApiError::Unauthorized(err)
     }
 }
 
@@ -364,6 +380,30 @@ impl std::fmt::Display for UnsupportedWebhookEvent {
 }
 
 impl Error for UnsupportedWebhookEvent {}
+
+#[derive(Debug, Serialize)]
+pub struct Unauthorized {}
+
+impl Unauthorized {
+    pub fn new() -> Self {
+        Unauthorized {}
+    }
+    pub fn status(&self) -> StatusCode {
+        StatusCode::UNAUTHORIZED
+    }
+}
+
+impl std::fmt::Display for Unauthorized {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Unauthorized")
+    }
+}
+
+impl Error for Unauthorized {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
+    }
+}
 
 #[derive(Debug, Serialize)]
 pub struct JsonError {

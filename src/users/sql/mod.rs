@@ -1,4 +1,5 @@
-use sqlx::{Error, PgPool};
+use crate::record::User;
+use sqlx::{Error, Executor, PgPool, Postgres};
 
 pub async fn is_admin(pool: &PgPool, username: &str) -> Result<bool, Error> {
     let result = sqlx::query!(
@@ -10,4 +11,20 @@ pub async fn is_admin(pool: &PgPool, username: &str) -> Result<bool, Error> {
     .fetch_optional(pool)
     .await?;
     Ok(result.map_or(false, |record| record.is_admin))
+}
+
+pub async fn user_by_user_id(
+    executor: impl Executor<'_, Database = Postgres>,
+    user_id: i64,
+) -> Result<User, Error> {
+    let result = sqlx::query_as!(
+        User,
+        r#"
+        SELECT * FROM users WHERE id = $1
+        "#,
+        user_id,
+    )
+    .fetch_one(executor)
+    .await?;
+    Ok(result)
 }

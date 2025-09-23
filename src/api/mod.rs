@@ -15,6 +15,9 @@ use axum::{
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
+        if let crate::api::ApiError::InternalServerError(ref err) = self {
+            println!("ApiError::InternalServerError {}", err)
+        }
         (self.status(), Json(self)).into_response()
     }
 }
