@@ -458,10 +458,10 @@ async fn userinfo(State(state): State<AppState>, headers: HeaderMap) -> ApiResul
     }
     let pool = &state.pool;
     let user = crate::users::sql::user_by_user_id(pool, access_token.user_id).await?;
-    
+
     let mut claims = serde_json::Map::new();
     claims.insert("sub".to_string(), json!(user.id.to_string()));
-    
+
     if scopes.contains(&"profile") {
         claims.insert("preferred_username".to_string(), json!(&user.username));
         if let Some(ref first_name) = user.first_name {

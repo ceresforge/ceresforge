@@ -37,7 +37,11 @@ pub async fn handler() -> ApiResult<Response> {
         subject_types_supported: vec!["public".to_string()],
         id_token_signing_alg_values_supported: vec!["RS256".to_string()],
         token_endpoint_auth_methods_supported: vec!["client_secret_post".to_string()],
-        scopes_supported: vec!["openid".to_string()],
+        scopes_supported: vec![
+            "email".to_string(),
+            "openid".to_string(),
+            "profile".to_string(),
+        ],
     };
     Ok(Json(configuration).into_response())
 }
