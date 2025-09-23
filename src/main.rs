@@ -250,7 +250,7 @@ async fn admin(
         return Ok(plain_403());
     }
     let pool = &state.pool;
-    let users = sqlx::query_as!(User, "SELECT * FROM users")
+    let users = sqlx::query_as!(User, "SELECT * FROM users ORDER BY id ASC")
         .fetch_all(pool)
         .await?;
     let title = "Admin";
