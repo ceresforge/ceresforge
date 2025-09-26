@@ -16,6 +16,9 @@ COPY migrations ./migrations/
 COPY frontend ./frontend/
 COPY src ./src/
 COPY Cargo.toml Cargo.lock build.rs .
+WORKDIR /package/frontend
+RUN npm i
+WORKDIR /package
 ENV SQLX_OFFLINE="true"
 RUN cargo build --release
 
