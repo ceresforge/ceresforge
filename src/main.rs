@@ -561,14 +561,13 @@ async fn csp_middleware(
 */
 
 async fn server() {
-    let frontend_dir: std::path::PathBuf = match std::env::var("FRONTEND_DIR") {
-        Err(_) => "frontend".into(),
-        Ok(value) => value.into(),
+    let frontend_dir = match std::env::var("FRONTEND_DIR") {
+        Ok(value) => std::path::PathBuf::from(value),
+        Err(_) => std::path::PathBuf::from("frontend/build"),
     };
     let child = std::process::Command::new("node")
-        .arg("build")
+        .arg(frontend_dir)
         .stdout(std::process::Stdio::null())
-        .current_dir(frontend_dir)
         .spawn()
         .unwrap();
 
