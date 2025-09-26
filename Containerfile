@@ -6,6 +6,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update \
         build-essential \
         libssl-dev \
         pkg-config \
+        npm \
         rustup \
     && rm -rf /var/lib/apt/lists/* \
     && rustup default stable
@@ -22,7 +23,10 @@ FROM $CONTAINER_IMAGE
 RUN DEBIAN_FRONTEND=noninteractive apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y \
         ca-certificates \
+        nodejs \
         xmlsec1 \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /package/target/release/ceresforge /usr/local/bin/ceresforge
+COPY --from=build /package/frontend /opt/ceresforge/frontend/
+ENV FRONTEND_DIR "/opt/ceresforge/frontend"
 CMD ["ceresforge", "server"]

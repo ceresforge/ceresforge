@@ -28,7 +28,8 @@ use argon2::{
 use auth::login_required_uri;
 use axum::{
     Router,
-    extract::{FromRef, OriginalUri},
+    body::Body,
+    extract::{FromRef, OriginalUri, Path, State},
     http::{StatusCode, header},
     response::{Html, IntoResponse, Response},
     routing::get,
@@ -37,6 +38,7 @@ use axum_extra::extract::cookie::Key;
 use base64ct::{Base64UrlUnpadded, Encoding};
 use clap::{Parser, Subcommand};
 use maud::{DOCTYPE, Markup, html};
+use reqwest::Client;
 use rsa::{RsaPrivateKey, pkcs8::DecodePrivateKey};
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use std::io::{Write, stdin, stdout};
@@ -68,6 +70,7 @@ struct AppState {
     pool: PgPool,
     key: Key,
     jwt_rsa_key: RsaPrivateKey,
+    client: Client,
 }
 
 impl FromRef<AppState> for Key {
@@ -76,6 +79,7 @@ impl FromRef<AppState> for Key {
     }
 }
 
+/*
 async fn ws_demo() -> Html<&'static str> {
     Html(include_str!("../frontend/ws-demo.html"))
 }
@@ -133,6 +137,7 @@ async fn svg() -> impl IntoResponse {
         include_str!("../frontend/ceresforge.svg"),
     )
 }
+*/
 
 pub fn base(title: &str, description: &str, body: Markup) -> Markup {
     html! {
@@ -208,6 +213,42 @@ async fn method_not_allowed_fallback() -> impl IntoResponse {
 
 async fn fallback() -> impl IntoResponse {
     plain_404()
+}
+
+async fn frontend_proxy(
+    State(state): State<AppState>,
+    OriginalUri(original_uri): OriginalUri,
+) -> impl IntoResponse {
+
+    let frontend_url = format!("http://localhost:{}{}", 3000, original_uri);
+    match state.client.get(&frontend_url).send().await {
+        Ok(frontend_response) => {
+            let mut response_builder = Response::builder()
+                .status(frontend_response.status());
+
+            // Copy headers from frontend response to our response
+            for (header_name, header_value) in frontend_response.headers() {
+                println!("{} {:?}", header_name, header_value);
+                response_builder = response_builder.header(header_name, header_value);
+            }
+            
+            // Stream the body
+            let stream = frontend_response.bytes_stream();
+            let body = axum::body::Body::from_stream(stream);
+
+            response_builder.body(body).unwrap_or_else(|e| {
+                eprintln!("Error building proxy response: {}", e);
+                Response::builder().status(500).body(Body::from("Internal Server Error")).unwrap()
+            })
+        }
+        Err(e) => {
+            eprintln!("Error proxying request to frontend: {}", e);
+            Response::builder()
+                .status(502) // Bad Gateway
+                .body(Body::from(format!("Failed to connect to frontend: {}", e)))
+                .unwrap()
+        }
+    }
 }
 
 async fn home(user: Option<User>) -> FrontendResult<Response> {
@@ -350,15 +391,19 @@ async fn app() -> Router {
     let jwt_rsa_key_pem = String::from_utf8(jwt_rsa_key_pem).unwrap();
     let jwt_rsa_key = RsaPrivateKey::from_pkcs8_pem(&jwt_rsa_key_pem).unwrap();
 
+    let client = Client::new();
+
     let state = AppState {
         pool,
         key,
         jwt_rsa_key,
+        client,
     };
 
     Router::new()
-        .route("/", get(home))
-        .route("/admin", get(admin))
+        //.route("/", get(home))
+        //.route("/admin", get(admin))
+        /*
         .route("/ws-demo", get(ws_demo))
         .route("/ws-demo.css", get(ws_demo_css))
         .route("/ws-demo.js", get(ws_demo_js))
@@ -366,6 +411,7 @@ async fn app() -> Router {
         .route("/inter-normal-4.1.woff2", get(inter_normal))
         .route("/inter-italic-4.1.woff2", get(inter_italic))
         .route(SVG_PATH, get(svg))
+        */
         .route("/.well-known/webfinger", get(crate::webfinger::handler))
         .route("/.well-known/jwks.json", get(crate::jwt::jwks_handler))
         .route(
@@ -375,7 +421,7 @@ async fn app() -> Router {
         .nest("/auth", auth::routes())
         .nest_service("/api", api::routes())
         .method_not_allowed_fallback(method_not_allowed_fallback)
-        .fallback(fallback)
+        .fallback(get(frontend_proxy))
         .with_state(state)
 }
 
@@ -515,6 +561,17 @@ async fn csp_middleware(
 */
 
 async fn server() {
+    let frontend_dir: std::path::PathBuf = match std::env::var("FRONTEND_DIR") {
+        Err(_) => "frontend".into(),
+        Ok(value) => value.into(),
+    };
+    let child = std::process::Command::new("node")
+        .arg("build")
+        .stdout(std::process::Stdio::null())
+        .current_dir(frontend_dir)
+        .spawn()
+        .unwrap();
+
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {

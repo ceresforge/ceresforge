@@ -16,8 +16,11 @@ fn main() {
     let package_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let package_dir = std::path::Path::new(&package_dir);
     let frontend_dir = package_dir.join("frontend");
-    let inter_normal_path = frontend_dir.join(format!("inter-normal-{}.woff2", INTER_VERSION));
-    let inter_italic_path = frontend_dir.join(format!("inter-italic-{}.woff2", INTER_VERSION));
+    let static_dir = frontend_dir.join("static");
+    let inter_normal_path = static_dir.join(format!("inter-normal-{}.woff2", INTER_VERSION));
+    let inter_italic_path = static_dir.join(format!("inter-italic-{}.woff2", INTER_VERSION));
+    
+    std::process::Command::new("npm").arg("run").arg("build").current_dir(frontend_dir).status().unwrap();
 
     if inter_normal_path.exists() && inter_italic_path.exists() {
         return;

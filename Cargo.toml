@@ -18,7 +18,7 @@ hmac = "0.12.1"
 maud = { version = "0.27.0", features = ["axum"] }
 quick-xml = { version = "0.37.5", features = ["serialize", "serde-types"] }
 rand = "0.9.1"
-reqwest = "0.12.23"
+reqwest = { version = "0.12.23", features = ["stream"] }
 rpassword = "7.4.0"
 rsa = { version = "0.10.0-rc.8", features = ["sha2"] }
 serde = { version = "1.0.219", features = ["derive"] }

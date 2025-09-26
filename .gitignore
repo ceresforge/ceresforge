@@ -1,5 +1,6 @@
 /target/
-/frontend/*.woff2
 /.env
+
+*.woff2
 
 .DS_Store
