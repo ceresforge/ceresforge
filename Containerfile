@@ -27,6 +27,6 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update \
         xmlsec1 \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /package/target/release/ceresforge /usr/local/bin/ceresforge
-COPY --from=build /package/frontend /opt/ceresforge/frontend/
+COPY --from=build /package/frontend/build /opt/ceresforge/frontend/
 ENV FRONTEND_DIR "/opt/ceresforge/frontend"
 CMD ["ceresforge", "server"]
