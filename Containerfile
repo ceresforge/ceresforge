@@ -13,8 +13,10 @@ RUN apt-get update \
     && rustup default stable
 
 WORKDIR /package/frontend
-COPY frontend/package*.json frontend/svelte.config.js frontend/tsconfig.json .
-RUN npm i
+COPY frontend/package.json frontend/pnpm-lock.yaml \
+    frontend/svelte.config.js frontend/tsconfig.json \
+    .
+RUN npm install -g pnpm@latest-10 && pnpm install
 
 WORKDIR /package
 COPY Cargo.toml Cargo.lock build.rs .
