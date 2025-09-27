@@ -9,6 +9,7 @@ RUN apt-get update \
         pkg-config \
         npm \
         rustup \
+        woff2 \
     && rm -rf /var/lib/apt/lists/* \
     && rustup default stable \
     && npm install -g pnpm@latest-10

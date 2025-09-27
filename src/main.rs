@@ -219,26 +219,27 @@ async fn frontend_proxy(
     State(state): State<AppState>,
     OriginalUri(original_uri): OriginalUri,
 ) -> impl IntoResponse {
-
     let frontend_url = format!("http://localhost:{}{}", 3000, original_uri);
     match state.client.get(&frontend_url).send().await {
         Ok(frontend_response) => {
-            let mut response_builder = Response::builder()
-                .status(frontend_response.status());
+            let mut response_builder = Response::builder().status(frontend_response.status());
 
             // Copy headers from frontend response to our response
             for (header_name, header_value) in frontend_response.headers() {
                 println!("{} {:?}", header_name, header_value);
                 response_builder = response_builder.header(header_name, header_value);
             }
-            
+
             // Stream the body
             let stream = frontend_response.bytes_stream();
             let body = axum::body::Body::from_stream(stream);
 
             response_builder.body(body).unwrap_or_else(|e| {
                 eprintln!("Error building proxy response: {}", e);
-                Response::builder().status(500).body(Body::from("Internal Server Error")).unwrap()
+                Response::builder()
+                    .status(500)
+                    .body(Body::from("Internal Server Error"))
+                    .unwrap()
             })
         }
         Err(e) => {

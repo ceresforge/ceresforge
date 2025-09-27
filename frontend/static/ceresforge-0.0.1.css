@@ -1,19 +1,33 @@
 @font-face {
-  font-family: Inter;
+  font-family: 'Inter';
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
   src: url("/inter-normal-4.1.woff2") format("woff2-variations");
 }
 @font-face {
-  font-family: Inter;
+  font-family: 'Inter';
   font-style: italic;
   font-weight: 100 900;
   font-display: swap;
   src: url("/inter-italic-4.1.woff2") format("woff2-variations");
 }
+@font-face {
+  font-family: 'JetBrians Mono';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/jet-brains-mono-normal-2.304.woff2") format("woff2-variations");
+}
+@font-face {
+  font-family: 'JetBrians Mono';
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/jet-brains-mono-italic-2.304.woff2") format("woff2-variations");
+}
 :root {
-  font-family: Inter, sans-serif;
+  font-family: 'Inter', sans-serif;
   font-feature-settings: "liga" 1, "calt" 1, "ss01" 1, "ss03" 1, "ss04" 1;
 
   color-scheme: light dark;
@@ -229,4 +243,8 @@ thead th {
   background-color: var(--purple-background-color);
   position: sticky;
   top: 0;
+}
+code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
 }
