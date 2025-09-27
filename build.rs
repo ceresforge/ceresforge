@@ -20,34 +20,32 @@ fn main() {
     let static_dir = frontend_dir.join("static");
     let inter_normal_path = static_dir.join(format!("inter-normal-{}.woff2", INTER_VERSION));
     let inter_italic_path = static_dir.join(format!("inter-italic-{}.woff2", INTER_VERSION));
-    
-    std::process::Command::new("pnpm").arg("install").current_dir(&frontend_dir).status().unwrap();
-    std::process::Command::new("npm").arg("run").arg("build").current_dir(frontend_dir).status().unwrap();
 
-    if inter_normal_path.exists() && inter_italic_path.exists() {
-        return;
+    if !inter_normal_path.exists() || !inter_italic_path.exists() {
+        let url = format!(
+            "https://github.com/rsms/inter/releases/download/v{0}/Inter-{0}.zip",
+            INTER_VERSION
+        );
+        let bytes = ureq::get(url)
+            .call()
+            .unwrap()
+            .body_mut()
+            .with_config()
+            .limit(48 * 1024 * 1024)
+            .read_to_vec()
+            .unwrap();
+
+        let reader = std::io::Cursor::new(bytes);
+
+        let mut zip = zip::ZipArchive::new(reader).unwrap();
+        extract_file(&mut zip, "web/InterVariable.woff2", &inter_normal_path);
+        extract_file(
+            &mut zip,
+            "web/InterVariable-Italic.woff2",
+            &inter_italic_path,
+        );
     }
 
-    let url = format!(
-        "https://github.com/rsms/inter/releases/download/v{0}/Inter-{0}.zip",
-        INTER_VERSION
-    );
-    let bytes = ureq::get(url)
-        .call()
-        .unwrap()
-        .body_mut()
-        .with_config()
-        .limit(48 * 1024 * 1024)
-        .read_to_vec()
-        .unwrap();
-
-    let reader = std::io::Cursor::new(bytes);
-
-    let mut zip = zip::ZipArchive::new(reader).unwrap();
-    extract_file(&mut zip, "web/InterVariable.woff2", &inter_normal_path);
-    extract_file(
-        &mut zip,
-        "web/InterVariable-Italic.woff2",
-        &inter_italic_path,
-    );
+    std::process::Command::new("pnpm").arg("install").current_dir(&frontend_dir).status().unwrap();
+    std::process::Command::new("npm").arg("run").arg("build").current_dir(frontend_dir).status().unwrap();
 }
