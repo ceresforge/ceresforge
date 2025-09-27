@@ -11,6 +11,7 @@ where
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=frontend");
     println!("cargo:rerun-if-changed=migrations");
 
     let package_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -20,6 +21,7 @@ fn main() {
     let inter_normal_path = static_dir.join(format!("inter-normal-{}.woff2", INTER_VERSION));
     let inter_italic_path = static_dir.join(format!("inter-italic-{}.woff2", INTER_VERSION));
     
+    std::process::Command::new("pnpm").arg("install").current_dir(&frontend_dir).status().unwrap();
     std::process::Command::new("npm").arg("run").arg("build").current_dir(frontend_dir).status().unwrap();
 
     if inter_normal_path.exists() && inter_italic_path.exists() {

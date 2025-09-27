@@ -10,20 +10,11 @@ RUN apt-get update \
         npm \
         rustup \
     && rm -rf /var/lib/apt/lists/* \
-    && rustup default stable
-
-WORKDIR /package/frontend
-COPY frontend/package.json frontend/pnpm-lock.yaml \
-    frontend/svelte.config.js frontend/tsconfig.json \
-    .
-RUN npm install -g pnpm@latest-10 && pnpm install
+    && rustup default stable \
+    && npm install -g pnpm@latest-10
 
 WORKDIR /package
-COPY Cargo.toml Cargo.lock build.rs .
-COPY .sqlx ./.sqlx/
-COPY migrations ./migrations/
-COPY frontend ./frontend/
-COPY src ./src/
+COPY . /package
 ENV SQLX_OFFLINE="true"
 RUN cargo build --release
 
@@ -35,8 +26,7 @@ RUN apt-get update \
         nodejs \
         xmlsec1 \
     && rm -rf /var/lib/apt/lists/*
-COPY --from=build /package/target/release/ceresforge \
-    /usr/local/bin/ceresforge
+COPY --from=build /package/target/release/ceresforge /usr/local/bin/ceresforge
 COPY --from=build /package/frontend/build /opt/ceresforge/frontend/
 ENV FRONTEND_DIR "/opt/ceresforge/frontend"
 CMD ["ceresforge", "server"]

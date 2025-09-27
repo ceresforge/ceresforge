@@ -1,6 +1,4 @@
 /target/
 /.env
-
-*.woff2
-
 .DS_Store
+*.woff2

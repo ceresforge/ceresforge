@@ -1,0 +1,12 @@
+.git/
+**/.gitattributes
+**/.gitignore
+**/.containerignore
+**/Containerfile
+target/
+.env
+**/.DS_Store
+**/*.woff2
+frontend/.svelte-kit/
+frontend/build/
+frontend/node_modules/
