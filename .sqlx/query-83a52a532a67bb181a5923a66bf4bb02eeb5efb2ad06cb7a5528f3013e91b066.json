@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT * FROM users ORDER BY id ASC",
+  "query": "\n        SELECT * FROM users LIMIT 100\n        ",
   "describe": {
     "columns": [
       {
@@ -58,5 +58,5 @@
       false
     ]
   },
-  "hash": "d9ee09034b95cdbb94ce801378f8b2508f991a5f6091e1888d02efec54e1aa8f"
+  "hash": "83a52a532a67bb181a5923a66bf4bb02eeb5efb2ad06cb7a5528f3013e91b066"
 }
