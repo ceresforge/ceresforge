@@ -2,19 +2,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use time::OffsetDateTime;
 
-#[allow(dead_code)]
-#[derive(Debug)]
-pub struct User {
-    pub id: i64,
-    pub username: String,
-    pub is_admin: bool,
-    pub email: Option<String>,
-    pub first_name: Option<String>,
-    pub last_name: Option<String>,
-    pub created_at: OffsetDateTime,
-    pub updated_at: OffsetDateTime,
-}
-
 #[derive(Debug, Deserialize, Serialize)]
 pub struct SamlRequestedAttribute {
     pub friendly_name: String,

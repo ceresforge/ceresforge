@@ -113,21 +113,24 @@ fn main() {
         download_jet_brains_mono(&jet_brains_mono_normal_path, &jet_brains_mono_italic_path);
     }
 
-    assert!(
-        std::process::Command::new("pnpm")
-            .arg("install")
-            .current_dir(&frontend_dir)
-            .status()
-            .unwrap()
-            .success()
-    );
-    assert!(
-        std::process::Command::new("npm")
-            .arg("run")
-            .arg("build")
-            .current_dir(frontend_dir)
-            .status()
-            .unwrap()
-            .success()
-    );
+    #[cfg(not(debug_assertions))]
+    {
+        assert!(
+            std::process::Command::new("pnpm")
+                .arg("install")
+                .current_dir(&frontend_dir)
+                .status()
+                .unwrap()
+                .success()
+        );
+        assert!(
+            std::process::Command::new("npm")
+                .arg("run")
+                .arg("build")
+                .current_dir(frontend_dir)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
 }

@@ -5,7 +5,7 @@ use crate::{
     base,
     frontend::FrontendResult,
     generate_secure_hash, plain_400,
-    record::User,
+    users::User,
 };
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use axum::{

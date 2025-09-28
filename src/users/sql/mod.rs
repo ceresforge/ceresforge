@@ -1,4 +1,4 @@
-use crate::record::User;
+use super::{PublicUser, User};
 use sqlx::{Error, Executor, PgPool, Postgres};
 
 pub async fn is_admin(pool: &PgPool, username: &str) -> Result<bool, Error> {
@@ -25,6 +25,30 @@ pub async fn user_by_user_id(
         user_id,
     )
     .fetch_one(executor)
+    .await?;
+    Ok(result)
+}
+
+pub async fn public_users(executor: impl Executor<'_, Database = Postgres>) -> Result<Vec<PublicUser>, Error> {
+    let result = sqlx::query_as!(
+        PublicUser,
+        r#"
+        SELECT id, username, created_at FROM users LIMIT 100
+        "#,
+    )
+    .fetch_all(executor)
+    .await?;
+    Ok(result)
+}
+
+pub async fn users(executor: impl Executor<'_, Database = Postgres>) -> Result<Vec<User>, Error> {
+    let result = sqlx::query_as!(
+        User,
+        r#"
+        SELECT * FROM users LIMIT 100
+        "#,
+    )
+    .fetch_all(executor)
     .await?;
     Ok(result)
 }

@@ -4,13 +4,16 @@ mod ws;
 pub use crate::api::error::ApiError;
 pub type ApiResult<T> = Result<T, ApiError>;
 
-use crate::api::error::{MalformedHeader, MethodNotAllowed, MissingHeader, NotFound};
+use crate::{
+    AppState,
+    api::error::{MalformedHeader, MethodNotAllowed, MissingHeader, NotFound},
+};
 use axum::{
     Json, Router,
     extract::OriginalUri,
     http::{HeaderMap, Method},
     response::{IntoResponse, Response},
-    routing::any,
+    routing::{any, get},
 };
 
 impl IntoResponse for ApiError {
@@ -40,9 +43,10 @@ async fn fallback(uri: OriginalUri) -> ApiError {
     NotFound::new(uri.to_string()).into()
 }
 
-pub fn routes() -> Router {
+pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/ws", any(ws::handler))
+        .route("/users", get(crate::users::list_users))
         .nest("/forgejo", crate::forgejo::routes())
         .method_not_allowed_fallback(method_not_allowed_fallback)
         .fallback(fallback)

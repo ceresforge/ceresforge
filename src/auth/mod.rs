@@ -3,7 +3,7 @@ pub mod oauth2;
 pub mod saml; // TODO: Change to private
 
 use crate::frontend::FrontendResult;
-use crate::record::User;
+use crate::users::User;
 use crate::{AppState, base};
 use axum::extract::State;
 use axum::{

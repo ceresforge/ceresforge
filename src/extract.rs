@@ -1,4 +1,4 @@
-use crate::{AppState, record::User};
+use crate::{AppState, users::User};
 use axum::{
     extract::{FromRequestParts, OptionalFromRequestParts},
     http::request::Parts,

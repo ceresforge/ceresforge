@@ -20,18 +20,16 @@ mod record;
 mod users;
 mod webfinger;
 
-use crate::{frontend::FrontendResult, record::User};
 use argon2::{
     Argon2,
     password_hash::{PasswordHasher, SaltString, rand_core::OsRng},
 };
-use auth::login_required_uri;
 use axum::{
     Router,
     body::Body,
-    extract::{FromRef, OriginalUri, Path, State},
-    http::{StatusCode, header},
-    response::{Html, IntoResponse, Response},
+    extract::{FromRef, OriginalUri, State},
+    http::StatusCode,
+    response::{IntoResponse, Response},
     routing::get,
 };
 use axum_extra::extract::cookie::Key;
@@ -186,6 +184,7 @@ fn plain_401() -> Response {
     plain_fullscreen("401", "Unauthorized.", StatusCode::UNAUTHORIZED).into_response()
 }
 
+#[allow(dead_code)]
 fn plain_403() -> Response {
     plain_fullscreen("403", "Forbidden.", StatusCode::FORBIDDEN).into_response()
 }
@@ -211,6 +210,7 @@ async fn method_not_allowed_fallback() -> impl IntoResponse {
     plain_405()
 }
 
+#[allow(dead_code)]
 async fn fallback() -> impl IntoResponse {
     plain_404()
 }
@@ -219,7 +219,11 @@ async fn frontend_proxy(
     State(state): State<AppState>,
     OriginalUri(original_uri): OriginalUri,
 ) -> impl IntoResponse {
-    let frontend_url = format!("http://localhost:{}{}", 3000, original_uri);
+    let frontend_port = match cfg!(debug_assertions) {
+        true => 5173,
+        false => 3000,
+    };
+    let frontend_url = format!("http://localhost:{}{}", frontend_port, original_uri);
     match state.client.get(&frontend_url).send().await {
         Ok(frontend_response) => {
             let mut response_builder = Response::builder().status(frontend_response.status());
@@ -250,125 +254,6 @@ async fn frontend_proxy(
                 .unwrap()
         }
     }
-}
-
-async fn home(user: Option<User>) -> FrontendResult<Response> {
-    let title = "CeresForge";
-    let description = "A web platform for learning, creating, and testing software.";
-    let body = html! {
-        div .full-screen {
-            h1 {
-                (title)
-            }
-            p {
-                (description)
-            }
-            div .flex-columns {
-                a .button .red-bg .center-fill href=(login_required_uri("/admin", &user)) {
-                    "Admin"
-                }
-            }
-        }
-    };
-    Ok(html! {
-        (base(title, description, body))
-    }
-    .into_response())
-}
-
-async fn admin(
-    user: Option<User>,
-    OriginalUri(uri): OriginalUri,
-    axum::extract::State(state): axum::extract::State<AppState>,
-) -> FrontendResult<axum::response::Response> {
-    if user.is_none() {
-        let uri = uri.to_string();
-        let uri = urlencoding::encode(&uri);
-        let uri = format!("/auth/local/login?redirect={}", uri);
-        return Ok(axum::response::Redirect::to(&uri).into_response());
-    }
-    let user = user.unwrap();
-    if !user.is_admin {
-        return Ok(plain_403());
-    }
-    let pool = &state.pool;
-    let users = sqlx::query_as!(User, "SELECT * FROM users ORDER BY id ASC")
-        .fetch_all(pool)
-        .await?;
-    let title = "Admin";
-    let description = "Displays administrator information.";
-    let body = html! {
-        header {
-            nav {
-                a href="/" {
-                   img src=(SVG_PATH) alt="CeresForge";
-                }
-                a href="/admin" {
-                    "Admin"
-                }
-                a href="/auth" .button {
-                    "Log in"
-                }
-            }
-        }
-        main {
-            article {
-                h1 {
-                    (title)
-                }
-                p {
-                    (description)
-                }
-                table {
-                    thead {
-                        tr {
-                            th { "ID" }
-                            th { "Username" }
-                            th { "Admin" }
-                            th { "Email" }
-                            th { "First Name" }
-                            th { "Last Name" }
-                        }
-                    }
-                    tbody {
-                        @for user in &users {
-                        tr {
-                            td { (user.id) }
-                            td { (user.username) }
-                            td {
-                                @if user.is_admin {
-                                    "✅"
-                                }
-                                @else {
-                                    "❌"
-                                }
-                            }
-                            td {
-                                @if let Some(email) = &user.email {
-                                    (email)
-                                }
-                            }
-                            td {
-                                @if let Some(first_name) = &user.first_name {
-                                    (first_name)
-                                }
-                            }
-                            td {
-                                @if let Some(last_name) = &user.last_name {
-                                    (last_name)
-                                }
-                            }
-                        }
-                        }
-                    }
-                }
-            }
-        }
-    };
-    Ok(html! {
-        (base(title, description, body))
-    }
-    .into_response())
 }
 
 async fn app() -> Router {
@@ -402,17 +287,6 @@ async fn app() -> Router {
     };
 
     Router::new()
-        //.route("/", get(home))
-        //.route("/admin", get(admin))
-        /*
-        .route("/ws-demo", get(ws_demo))
-        .route("/ws-demo.css", get(ws_demo_css))
-        .route("/ws-demo.js", get(ws_demo_js))
-        .route(CSS_PATH, get(css))
-        .route("/inter-normal-4.1.woff2", get(inter_normal))
-        .route("/inter-italic-4.1.woff2", get(inter_italic))
-        .route(SVG_PATH, get(svg))
-        */
         .route("/.well-known/webfinger", get(crate::webfinger::handler))
         .route("/.well-known/jwks.json", get(crate::jwt::jwks_handler))
         .route(
@@ -420,7 +294,7 @@ async fn app() -> Router {
             get(crate::openid_configuration::handler),
         )
         .nest("/auth", auth::routes())
-        .nest_service("/api", api::routes())
+        .nest("/api", api::routes())
         .method_not_allowed_fallback(method_not_allowed_fallback)
         .fallback(get(frontend_proxy))
         .with_state(state)
@@ -566,11 +440,25 @@ async fn server() {
         Ok(value) => std::path::PathBuf::from(value),
         Err(_) => std::path::PathBuf::from("frontend/build"),
     };
-    let child = std::process::Command::new("node")
-        .arg(frontend_dir)
-        .stdout(std::process::Stdio::null())
-        .spawn()
-        .unwrap();
+
+    #[cfg(debug_assertions)]
+    {
+        let _child = std::process::Command::new("npm")
+            .arg("run")
+            .arg("dev")
+            .current_dir(frontend_dir)
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        let _child = std::process::Command::new("node")
+            .arg(frontend_dir)
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+    }
 
     tracing_subscriber::registry()
         .with(

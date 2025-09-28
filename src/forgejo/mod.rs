@@ -1,3 +1,4 @@
+use crate::AppState;
 use crate::api::{
     ApiResult,
     error::{
@@ -159,6 +160,6 @@ async fn webhook_handler(headers: HeaderMap, bytes: Bytes) -> ApiResult<()> {
     handle_event(event, &bytes)
 }
 
-pub fn routes() -> Router {
+pub fn routes() -> Router<AppState> {
     Router::new().route("/webhook", post(webhook_handler))
 }

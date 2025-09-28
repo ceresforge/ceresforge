@@ -1,6 +1,6 @@
 use super::{Params, already_logged_in, create_cookie, redirect_uri};
 use crate::{AppState, base, frontend::FrontendResult};
-use crate::{auth::AuthError, record::User};
+use crate::{auth::AuthError, users::User};
 use argon2::{
     Argon2,
     password_hash::{PasswordHash, PasswordVerifier},
