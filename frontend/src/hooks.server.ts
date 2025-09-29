@@ -7,7 +7,7 @@ export const handleFetch: HandleFetch = async ({ request, fetch }) => {
                       : 'http://localhost:5173';
     if (request.url.startsWith(frontendUrl)) {
         request = new Request(
-            request.url.replace(frontendUrl, 'http://localhost:8080'),
+            request.url.replace(frontendUrl, 'http://127.0.0.1:8080'),
             request
         );
     }
