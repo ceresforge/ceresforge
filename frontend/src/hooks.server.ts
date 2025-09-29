@@ -3,7 +3,7 @@ import { NODE_ENV } from '$env/static/private';
 
 export const handleFetch: HandleFetch = async ({ request, fetch }) => {
     let frontendUrl = NODE_ENV === 'production'
-                      ? 'http://localhost:3000'
+                      ? 'https://localhost:3000'
                       : 'http://localhost:5173';
     if (request.url.startsWith(frontendUrl)) {
         request = new Request(
