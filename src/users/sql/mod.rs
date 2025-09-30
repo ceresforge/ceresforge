@@ -29,7 +29,9 @@ pub async fn user_by_user_id(
     Ok(result)
 }
 
-pub async fn public_users(executor: impl Executor<'_, Database = Postgres>) -> Result<Vec<PublicUser>, Error> {
+pub async fn public_users(
+    executor: impl Executor<'_, Database = Postgres>,
+) -> Result<Vec<PublicUser>, Error> {
     let result = sqlx::query_as!(
         PublicUser,
         r#"

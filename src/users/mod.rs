@@ -4,6 +4,7 @@ use crate::{AppState, api::ApiResult};
 use axum::{
     Json,
     extract::State,
+    http::StatusCode,
     response::{IntoResponse, Response},
 };
 use serde::Serialize;
@@ -33,12 +34,15 @@ pub struct PublicUser {
 }
 
 pub async fn list_users(State(state): State<AppState>, user: Option<User>) -> ApiResult<Response> {
+    let Some(user) = user else {
+        return Ok(StatusCode::UNAUTHORIZED.into_response());
+    };
     let pool = &state.pool;
-    if let Some(user) = user && user.is_admin {
+    if user.is_admin
+    {
         let users = sql::users(pool).await?;
         Ok(Json(users).into_response())
-    }
-    else {
+    } else {
         let public_users = sql::public_users(pool).await?;
         Ok(Json(public_users).into_response())
     }

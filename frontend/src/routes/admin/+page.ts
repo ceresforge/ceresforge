@@ -11,7 +11,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
   const apiEndpoint = `${url.origin}/api/users`;
   const res = await fetch(apiEndpoint, { headers: { accept: 'application/json' } });
   if (!res.ok) {
-    throw error(res.status, await res.text());
+    throw error(res.status, res.statusText);
   }
   const users: User[] = await res.json();
   return { users };

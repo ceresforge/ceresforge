@@ -15,9 +15,8 @@
 <h1>{title}</h1>
 <p>{description}</p>
 
-{#if data.users.length === 0}
-  <p>No users found.</p>
-{:else}
+{#if data.users.length > 0}
+  <h2>Users</h2>
   <table>
     <thead>
       <tr>
