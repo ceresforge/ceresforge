@@ -12,9 +12,7 @@
 
 <header>
 	<nav>
-		<a href="/">
-			<img src="{favicon}" alt="CeresForge">
-		</a>
+		<a href="/"><img src="{favicon}" alt="CeresForge"></a>
 		<a href="/admin">Admin</a>
 	</nav>
 </header>
