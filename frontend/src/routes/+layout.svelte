@@ -6,8 +6,6 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon}>
-	<link rel="preload" href="/inter-normal-4.1.woff2" as="font" type="font/woff2">
-	<link rel="preload" href="/inter-italic-4.1.woff2" as="font" type="font/woff2">
 </svelte:head>
 
 <header>

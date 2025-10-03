@@ -72,11 +72,10 @@
   --yellow-color: light-dark(var(--yellow-darken), var(--yellow-lighten));
   --blue-background-color: light-dark(var(--blue-lighten), var(--blue-darken));
   --purple-background-color: light-dark(var(--purple-lighten), var(--purple-darken));
-
-  --header-height: 3rem;
 }
 * {
   box-sizing: border-box;
+  overscroll-behavior: none;
   margin: 0;
   padding: 0;
 }
@@ -84,22 +83,18 @@ body {
   font-size: 0.8125rem;
   color: var(--default-color);
   background-color: var(--default-background-color);
-  overscroll-behavior: none;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  width: 100dvw;
 }
 header {
   background-color: var(--subtle-background-color);
-  height: var(--header-height);
-  align-content: center;
+  flex-shrink: 0;
   padding: 0.5rem;
-  position: sticky;
-  top: 0;
 }
 main {
-  position: fixed;
-  top: var(--header-height);
-  left: 0;
-  right: 0;
-  bottom: 0;
+  flex-grow: 1;
   overflow: auto;
 }
 article {

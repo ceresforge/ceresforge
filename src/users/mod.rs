@@ -38,8 +38,7 @@ pub async fn list_users(State(state): State<AppState>, user: Option<User>) -> Ap
         return Ok(StatusCode::UNAUTHORIZED.into_response());
     };
     let pool = &state.pool;
-    if user.is_admin
-    {
+    if user.is_admin {
         let users = sql::users(pool).await?;
         Ok(Json(users).into_response())
     } else {
