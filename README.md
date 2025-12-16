@@ -21,20 +21,13 @@ podman run \
 
 ## License
 
-Licensed under either of
-
- * [Apache License, Version 2.0]
-   ([LICENSES/Apache-2.0.txt](LICENSES/Apache-2.0.txt) or [apache-2.0-license-website])
- * MIT License
-   ([LICENSES/MIT.txt](LICENSES/MIT.txt) or <https://opensource.org/license/mit>)
-
-at your option.
+Licensed under the [Apache License, Version 2.0] or the [MIT License], at your option.
 
 ## Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the
-work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any
-additional terms or conditions.
+work by you, as defined in the [Apache License, Version 2.0], shall be dual licensed as above,
+without any additional terms or conditions.
 
 [Apache License, Version 2.0]: LICENSES/Apache-2.0.txt
-[apache-2.0-license-website]: http://www.apache.org/licenses/LICENSE-2.0
+[MIT License]: LICENSES/MIT.txt
