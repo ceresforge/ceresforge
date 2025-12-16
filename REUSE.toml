@@ -15,6 +15,5 @@ path = [
     "migrations/**",
     "src/**",
 ]
-precedence = "override"
 SPDX-FileCopyrightText = "2025 Jonathan Eyolfson <jon@eyolfson.com>"
-SPDX-License-Identifier = "MIT OR Apache-2.0"
+SPDX-License-Identifier = "Apache-2.0 OR MIT"
