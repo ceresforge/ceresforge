@@ -8,8 +8,8 @@ export type User = {
 };
 
 export const load: PageLoad = async ({ fetch, url }) => {
-  const apiEndpoint = `${url.origin}/api/users`;
-  const res = await fetch(apiEndpoint, { headers: { accept: 'application/json' } });
+  const endpoint = `${url.origin}/api/users`;
+  const res = await fetch(endpoint, { headers: { accept: 'application/json' } });
   if (!res.ok) {
     throw error(res.status, res.statusText);
   }

@@ -25,12 +25,7 @@ use argon2::{
     password_hash::{PasswordHasher, SaltString, rand_core::OsRng},
 };
 use axum::{
-    Router,
-    body::Body,
-    extract::{FromRef, OriginalUri, State},
-    http::StatusCode,
-    response::{IntoResponse, Response},
-    routing::get,
+    body::Body, extract::{FromRef, OriginalUri, State}, http::{HeaderMap, StatusCode}, response::{IntoResponse, Response}, routing::get, Router
 };
 use axum_extra::extract::cookie::Key;
 use base64ct::{Base64UrlUnpadded, Encoding};
@@ -217,12 +212,16 @@ async fn fallback() -> impl IntoResponse {
 
 async fn frontend_proxy(
     State(state): State<AppState>,
+    headers: HeaderMap,
     OriginalUri(original_uri): OriginalUri,
 ) -> impl IntoResponse {
     let frontend_port = match cfg!(debug_assertions) {
         true => 5173,
         false => 3000,
     };
+    for (header_name, header_value) in &headers {
+        println!("Backend {} {:?}", header_name, header_value);
+    }
     let frontend_url = format!("http://localhost:{}{}", frontend_port, original_uri);
     match state.client.get(&frontend_url).send().await {
         Ok(frontend_response) => {
@@ -230,7 +229,7 @@ async fn frontend_proxy(
 
             // Copy headers from frontend response to our response
             for (header_name, header_value) in frontend_response.headers() {
-                println!("{} {:?}", header_name, header_value);
+                println!("Frontend {} {:?}", header_name, header_value);
                 response_builder = response_builder.header(header_name, header_value);
             }
 
@@ -250,7 +249,7 @@ async fn frontend_proxy(
             eprintln!("Error proxying request to frontend: {}", e);
             Response::builder()
                 .status(502) // Bad Gateway
-                .body(Body::from(format!("Failed to connect to frontend: {}", e)))
+                .body(Body::empty())
                 .unwrap()
         }
     }
@@ -293,8 +292,8 @@ async fn app() -> Router {
             "/.well-known/openid-configuration",
             get(crate::openid_configuration::handler),
         )
-        .nest("/auth", auth::routes())
-        .nest("/api", api::routes())
+        .nest("/auth", auth::router())
+        .nest_service("/api", api::service(&state))
         .method_not_allowed_fallback(method_not_allowed_fallback)
         .fallback(get(frontend_proxy))
         .with_state(state)
@@ -441,6 +440,7 @@ async fn server() {
         Err(_) => std::path::PathBuf::from("frontend/build"),
     };
 
+        /*
     #[cfg(debug_assertions)]
     {
         let _child = std::process::Command::new("npm")
@@ -459,6 +459,7 @@ async fn server() {
             .spawn()
             .unwrap();
     }
+        */
 
     tracing_subscriber::registry()
         .with(
@@ -474,9 +475,7 @@ async fn server() {
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
 
     let app = app().await.layer(
-        ServiceBuilder::new()
-            .layer(TraceLayer::new_for_http())
-            // .layer(axum::middleware::from_fn(csp_middleware)),
+        ServiceBuilder::new().layer(TraceLayer::new_for_http()), // .layer(axum::middleware::from_fn(csp_middleware)),
     );
     axum::serve(listener, app).await.unwrap();
 }
@@ -569,18 +568,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn not_found() {
+    async fn bad_gateway() {
         let app = app().await;
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/not-found")
+                    .uri("/bad-gateway")
                     .body(Body::empty())
                     .unwrap(),
             )
             .await
             .unwrap();
-        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(body.is_empty(), true);
     }
 
     #[tokio::test]

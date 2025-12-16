@@ -1,0 +1,20 @@
+version = 1
+
+[[annotations]]
+path = [
+    ".containerignore",
+    ".gitattributes",
+    ".gitignore",
+    "Cargo.lock",
+    "Cargo.toml",
+    "Containerfile",
+    "README.md",
+    "build.rs",
+    ".sqlx/**",
+    "frontend/**",
+    "migrations/**",
+    "src/**",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "2025 Jonathan Eyolfson <jon@eyolfson.com>"
+SPDX-License-Identifier = "MIT OR Apache-2.0"

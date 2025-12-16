@@ -271,7 +271,7 @@ async fn auth(State(state): State<AppState>, user: Option<User>) -> FrontendResu
     .into_response())
 }
 
-pub fn routes() -> Router<AppState> {
+pub fn router() -> Router<AppState> {
     Router::new()
         .route("/", get(auth))
         .route("/login", get(login))

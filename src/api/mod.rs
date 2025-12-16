@@ -43,11 +43,13 @@ async fn fallback(uri: OriginalUri) -> ApiError {
     NotFound::new(uri.to_string()).into()
 }
 
-pub fn routes() -> Router<AppState> {
+pub fn service(state: &AppState) -> Router {
     Router::new()
         .route("/ws", any(ws::handler))
         .route("/users", get(crate::users::list_users))
+        .route("/users/self", get(crate::users::get_current_user))
         .nest("/forgejo", crate::forgejo::routes())
         .method_not_allowed_fallback(method_not_allowed_fallback)
         .fallback(fallback)
+        .with_state(state.clone())
 }

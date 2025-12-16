@@ -10,6 +10,43 @@ use axum::{
 use serde::Serialize;
 use time::{OffsetDateTime, serde::iso8601};
 
+const RESERVED_USERNAMES: &[&str] = &[
+    "admin",
+    "administrator",
+    "root",
+    "sys",
+    "system",
+    "moderator",
+    "mod",
+    "owner",
+    "support",
+    "help",
+    "contact",
+    "info",
+    "helpdesk",
+    "noreply",
+    "no-reply",
+    "self",
+    "current",
+    "account",
+    "user",
+    "users",
+    "guest",
+    "anonymous",
+    "team",
+    "staff",
+    "developer",
+    "dev",
+    "test",
+    "testing",
+    "demo",
+    "api",
+    "docs",
+    "status",
+    "bot",
+    "webmaster",
+];
+
 #[allow(dead_code)]
 #[derive(Debug, Serialize)]
 pub struct User {
@@ -31,6 +68,13 @@ pub struct PublicUser {
     pub username: String,
     #[serde(with = "iso8601")]
     pub created_at: OffsetDateTime,
+}
+
+pub async fn get_current_user(user: Option<User>) -> ApiResult<Response> {
+    let Some(user) = user else {
+        return Ok(StatusCode::UNAUTHORIZED.into_response());
+    };
+    Ok(Json(user).into_response())
 }
 
 pub async fn list_users(State(state): State<AppState>, user: Option<User>) -> ApiResult<Response> {

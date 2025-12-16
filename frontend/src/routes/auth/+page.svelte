@@ -2,9 +2,9 @@
     import type { PageProps } from './$types';
 
     let { data }: PageProps = $props();
-
-    let title = 'CeresForge';
-    let description = 'A web platform for learning, creating, and testing software.';
+    
+    let title = 'Auth';
+    let description = 'Authenticate to CeresForge.';
 </script>
 
 <svelte:head>
@@ -14,4 +14,3 @@
 
 <h1>{title}</h1>
 <p>{description}</p>
-<p>Hello {data.user}</p>
