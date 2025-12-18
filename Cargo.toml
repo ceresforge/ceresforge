@@ -10,7 +10,7 @@ license = "MIT OR Apache-2.0"
 argon2 = "0.5.3"
 axum = { version = "0.8.7", features = ["ws"] }
 axum-extra = { version = "0.12.2", features = ["cookie-private", "typed-header"] }
-base64ct = "1.8.0"
+base64ct = "1.8.1"
 clap = { version = "4.5.53", features = ["derive"] }
 flate2 = "1.1.5"
 futures = "0.3.31"
@@ -18,7 +18,7 @@ hmac = "0.12.1"
 maud = { version = "0.27.0", features = ["axum"] }
 quick-xml = { version = "0.38.4", features = ["serialize", "serde-types"] }
 rand = "0.10.0-rc.5"
-reqwest = { version = "0.12.24", features = ["stream"] }
+reqwest = { version = "0.12.26", features = ["stream"] }
 rpassword = "7.4.0"
 rsa = { version = "0.10.0-rc.10", features = ["sha2"] }
 serde = { version = "1.0.228", features = ["derive"] }
