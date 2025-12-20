@@ -55,6 +55,9 @@ enum Command {
     CreateOauth2Client,
     GenerateCookieKey,
     Migrate,
+    MigrateUndo {
+        target: i64,
+    },
     Server,
 }
 
@@ -406,7 +409,20 @@ async fn migrate() {
         .await
         .unwrap();
 
-    sqlx::migrate!().run(&pool).await.unwrap()
+    let migrator = sqlx::migrate!();
+    migrator.run(&pool).await.unwrap()
+}
+
+async fn migrate_undo(target: i64) {
+    let pool = PgPoolOptions::new()
+        .acquire_timeout(Duration::from_secs(1))
+        .max_connections(1)
+        .connect(&std::env::var("DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+
+    let migrator = sqlx::migrate!();
+    migrator.undo(&pool, target).await.unwrap()
 }
 
 /*
@@ -503,6 +519,11 @@ fn main() {
             .build()
             .unwrap()
             .block_on(migrate()),
+        Command::MigrateUndo { target } => tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(migrate_undo(target)),
         Command::Server => tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
