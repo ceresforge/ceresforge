@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS auth_oauth2_client_consents;
 DROP TABLE IF EXISTS auth_oauth2_client_refresh_tokens;
 DROP TABLE IF EXISTS auth_oauth2_client_access_tokens;
 DROP TABLE IF EXISTS auth_oauth2_client_authorization_codes;
@@ -9,3 +10,5 @@ DROP TABLE IF EXISTS auth_saml_providers;
 DROP TABLE IF EXISTS auth_local_credentials;
 DROP TABLE IF EXISTS auth_cookies;
 DROP TABLE IF EXISTS users;
+
+DROP FUNCTION IF EXISTS set_updated_at();

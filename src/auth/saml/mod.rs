@@ -801,7 +801,7 @@ async fn acs(
         FROM
             auth_saml_provider_requests
         WHERE
-            id = $1
+            external_id = $1
             AND expires_at > now()
         "#,
         uuid
@@ -829,7 +829,7 @@ async fn acs(
         r#"
         UPDATE auth_saml_provider_requests
         SET completed_at = now(), name_id = $1, attributes = $2
-        WHERE id = $3
+        WHERE external_id = $3
         "#,
         name_id,
         attributes_json,
@@ -894,16 +894,16 @@ async fn acs(
         /* Login */
         None => match credential {
             Some(c) => {
-                let user_id = c.user_id;
+                let provider_id = c.user_id;
                 update_credentials(
                     pool,
-                    user_id,
+                    provider_id,
                     provider.id,
                     name_id.as_str(),
                     &attributes_json,
                 )
                 .await?;
-                create_cookie(pool, jar, user_id, redirect).await
+                create_cookie(pool, jar, provider_id, redirect).await
             }
             None => {
                 if !provider.is_user_creation_allowed {
@@ -1009,7 +1009,7 @@ async fn create_saml_request(
     );
     sqlx::query!(
         r#"
-        INSERT INTO auth_saml_provider_requests (id, user_id, provider_id, redirect)
+        INSERT INTO auth_saml_provider_requests (external_id, user_id, provider_id, redirect)
         VALUES ($1, $2, $3, $4)
         "#,
         uuid,

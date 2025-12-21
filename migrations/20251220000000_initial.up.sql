@@ -1,3 +1,11 @@
+CREATE OR REPLACE FUNCTION set_updated_at()
+    RETURNS TRIGGER AS $$
+    BEGIN
+        NEW.updated_at = now();
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
 CREATE TABLE IF NOT EXISTS users (
     id bigint
         PRIMARY KEY
@@ -50,6 +58,11 @@ CREATE TABLE IF NOT EXISTS users (
         DEFAULT now()
 );
 
+CREATE TRIGGER users_updated_at
+    BEFORE UPDATE ON users
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
 CREATE TABLE IF NOT EXISTS auth_cookies (
     id text
         PRIMARY KEY
@@ -69,7 +82,7 @@ CREATE TABLE IF NOT EXISTS auth_cookies (
         DEFAULT (now() + interval '90 days')
 );
 
-CREATE INDEX IF NOT EXISTS auth_cookies_user_id_key
+CREATE INDEX IF NOT EXISTS auth_cookies_user_id_idx
     ON auth_cookies USING btree (user_id);
 
 CREATE TABLE IF NOT EXISTS auth_local_credentials (
@@ -81,7 +94,7 @@ CREATE TABLE IF NOT EXISTS auth_local_credentials (
         CONSTRAINT auth_local_credentials_password_hash_check
         CHECK (
             char_length(password_hash) > 0
-            AND char_length(password_hash) < 128
+            AND char_length(password_hash) < 256
         ),
     created_at timestamp with time zone
         NOT NULL
@@ -90,6 +103,11 @@ CREATE TABLE IF NOT EXISTS auth_local_credentials (
         NOT NULL
         DEFAULT now()
 );
+
+CREATE TRIGGER auth_local_credentials_updated_at
+    BEFORE UPDATE ON auth_local_credentials
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
 
 CREATE TABLE IF NOT EXISTS auth_saml_providers (
     id bigint
@@ -140,9 +158,18 @@ CREATE TABLE IF NOT EXISTS auth_saml_providers (
         DEFAULT now()
 );
 
+CREATE TRIGGER auth_saml_providers_updated_at
+    BEFORE UPDATE ON auth_saml_providers
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
 CREATE TABLE IF NOT EXISTS auth_saml_provider_requests (
-    id uuid
-        PRIMARY KEY,
+    id bigint
+        PRIMARY KEY
+        GENERATED ALWAYS AS IDENTITY,
+    external_id uuid
+        NOT NULL
+        UNIQUE,
     user_id bigint
         REFERENCES users(id) ON DELETE CASCADE,
     provider_id bigint
@@ -161,12 +188,9 @@ CREATE TABLE IF NOT EXISTS auth_saml_provider_requests (
     name_id text
         CONSTRAINT auth_saml_provider_requests_name_id_check
         CHECK (
-            name_id IS NULL
-            OR (
-                char_length(name_id) > 0
-                AND char_length(name_id) < 32
-                AND name_id ~ '^[a-z][a-z0-9_-]*$'
-            )
+            char_length(name_id) > 0
+            AND char_length(name_id) < 32
+            AND name_id ~ '^[A-Za-z0-9._+@-]+$'
         ),
     attributes jsonb,
 
@@ -185,6 +209,14 @@ CREATE TABLE IF NOT EXISTS auth_saml_provider_requests (
     )
 );
 
+CREATE INDEX IF NOT EXISTS auth_saml_provider_requests_provider_id_idx
+    ON auth_saml_provider_requests
+    USING btree (provider_id);
+
+CREATE INDEX IF NOT EXISTS auth_saml_provider_requests_user_id_idx
+    ON auth_saml_provider_requests
+    USING btree (user_id);
+
 CREATE TABLE IF NOT EXISTS auth_saml_provider_credentials (
     id bigint
         GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -200,7 +232,7 @@ CREATE TABLE IF NOT EXISTS auth_saml_provider_credentials (
         CHECK (
             char_length(name_id) > 0
             AND char_length(name_id) < 32
-            AND name_id ~ '^[a-z][a-z0-9_-]*$'
+            AND name_id ~ '^[A-Za-z0-9._+@-]+$'
         ),
     attributes jsonb NOT NULL,
     created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -212,6 +244,11 @@ CREATE TABLE IF NOT EXISTS auth_saml_provider_credentials (
     CONSTRAINT auth_saml_provider_credentials_provider_id_user_id_key
     UNIQUE (provider_id, user_id)
 );
+
+CREATE TRIGGER auth_saml_provider_credentials_updated_at
+    BEFORE UPDATE ON auth_saml_provider_credentials
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
 
 CREATE TABLE IF NOT EXISTS auth_oauth2_clients (
     id text
@@ -240,6 +277,11 @@ CREATE TABLE IF NOT EXISTS auth_oauth2_clients (
         DEFAULT now()
 );
 
+CREATE TRIGGER auth_oauth2_clients_updated_at
+    BEFORE UPDATE ON auth_oauth2_clients
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
 CREATE TABLE IF NOT EXISTS auth_oauth2_client_redirect_uris (
     id bigint
         PRIMARY KEY
@@ -262,6 +304,10 @@ CREATE TABLE IF NOT EXISTS auth_oauth2_client_redirect_uris (
     UNIQUE (client_id, uri)
 );
 
+CREATE INDEX IF NOT EXISTS auth_oauth2_client_redirect_uris_client_id_idx 
+    ON auth_oauth2_client_redirect_uris
+    USING btree (client_id);
+
 CREATE TABLE IF NOT EXISTS auth_oauth2_client_authorization_codes (
     code text
         PRIMARY KEY
@@ -283,11 +329,11 @@ CREATE TABLE IF NOT EXISTS auth_oauth2_client_authorization_codes (
             char_length(redirect_uri) > 0
             AND char_length(redirect_uri) < 512
         ),
-    scopes text
+    scope text
         NOT NULL
-        CONSTRAINT auth_oauth2_client_authorization_codes_scopes_check
+        CONSTRAINT auth_oauth2_client_authorization_codes_scope_check
         CHECK (
-            char_length(scopes) < 512
+            char_length(scope) < 512
         ),
     created_at timestamp with time zone
         NOT NULL
@@ -297,6 +343,14 @@ CREATE TABLE IF NOT EXISTS auth_oauth2_client_authorization_codes (
         DEFAULT (now() + interval '10 minutes'),
     completed_at timestamp with time zone
 );
+
+CREATE INDEX IF NOT EXISTS auth_oauth2_client_authorization_codes_client_id_idx
+    ON auth_oauth2_client_authorization_codes
+    USING btree (client_id);
+
+CREATE INDEX IF NOT EXISTS auth_oauth2_client_authorization_codes_user_id_idx
+    ON auth_oauth2_client_authorization_codes
+    USING btree (user_id);
 
 CREATE TABLE IF NOT EXISTS auth_oauth2_client_access_tokens (
     id text
@@ -312,11 +366,11 @@ CREATE TABLE IF NOT EXISTS auth_oauth2_client_access_tokens (
     user_id bigint
         NOT NULL
         REFERENCES users(id) ON DELETE CASCADE,
-    scopes text
+    scope text
         NOT NULL
-        CONSTRAINT auth_oauth2_client_access_tokens_scopes_check
+        CONSTRAINT auth_oauth2_client_access_tokens_scope_check
         CHECK (
-            char_length(scopes) < 512
+            char_length(scope) < 512
         ),
     created_at timestamp with time zone
         NOT NULL
@@ -326,7 +380,11 @@ CREATE TABLE IF NOT EXISTS auth_oauth2_client_access_tokens (
         DEFAULT (now() + interval '1 hour')
 );
 
-CREATE INDEX IF NOT EXISTS auth_oauth2_client_access_tokens_user_id_key
+CREATE INDEX IF NOT EXISTS auth_oauth2_client_access_tokens_client_id_idx
+    ON auth_oauth2_client_access_tokens
+    USING btree (client_id);
+
+CREATE INDEX IF NOT EXISTS auth_oauth2_client_access_tokens_user_id_idx
     ON auth_oauth2_client_access_tokens
     USING btree (user_id);
 
@@ -341,11 +399,11 @@ CREATE TABLE IF NOT EXISTS auth_oauth2_client_refresh_tokens (
     client_id text
         NOT NULL
         REFERENCES auth_oauth2_clients(id) ON DELETE CASCADE,
-    scopes text
+    scope text
         NOT NULL
-        CONSTRAINT auth_oauth2_client_refresh_tokens_scopes_check
+        CONSTRAINT auth_oauth2_client_refresh_tokens_scope_check
         CHECK (
-            char_length(scopes) < 512
+            char_length(scope) < 512
         ),
     created_at timestamp with time zone
         NOT NULL
@@ -355,6 +413,46 @@ CREATE TABLE IF NOT EXISTS auth_oauth2_client_refresh_tokens (
         DEFAULT (now() + interval '90 days')
 );
 
-CREATE INDEX IF NOT EXISTS auth_oauth2_client_refresh_tokens_user_id_key
+CREATE INDEX IF NOT EXISTS auth_oauth2_client_refresh_tokens_client_id_idx
+    ON auth_oauth2_client_refresh_tokens
+    USING btree (client_id);
+
+CREATE INDEX IF NOT EXISTS auth_oauth2_client_refresh_tokens_user_id_idx
     ON auth_oauth2_client_refresh_tokens
     USING btree (user_id);
+
+CREATE TABLE IF NOT EXISTS auth_oauth2_client_consents (
+    id bigint
+        PRIMARY KEY
+        GENERATED ALWAYS AS IDENTITY,
+    user_id bigint
+        NOT NULL
+        REFERENCES users(id) ON DELETE CASCADE,
+    client_id text
+        NOT NULL
+        REFERENCES auth_oauth2_clients(id) ON DELETE CASCADE,
+    scope text
+        NOT NULL
+        CONSTRAINT auth_oauth2_client_consents_scope_check
+        CHECK (
+            char_length(scope) < 512
+        ),
+    created_at timestamp with time zone
+        NOT NULL
+        DEFAULT now(),
+    updated_at timestamp with time zone
+        NOT NULL
+        DEFAULT now(),
+
+    CONSTRAINT auth_oauth2_client_consents_user_id_client_id_key
+    UNIQUE (user_id, client_id)
+);
+
+CREATE INDEX IF NOT EXISTS auth_oauth2_client_consents_client_id_idx
+    ON auth_oauth2_client_consents
+    USING btree (client_id);
+    
+CREATE TRIGGER auth_oauth2_client_consents_updated_at
+    BEFORE UPDATE ON auth_oauth2_client_consents
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
