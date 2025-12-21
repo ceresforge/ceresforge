@@ -11,9 +11,9 @@ path = [
     "README.md",
     "build.rs",
     ".sqlx/**",
-    "frontend/**",
     "migrations/**",
     "src/**",
+    "apps/web/**",
 ]
 SPDX-FileCopyrightText = "2025 Jonathan Eyolfson <jon@eyolfson.com>"
 SPDX-License-Identifier = "Apache-2.0 OR MIT"
