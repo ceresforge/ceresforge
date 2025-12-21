@@ -456,7 +456,6 @@ async fn server() {
         Err(_) => std::path::PathBuf::from("frontend/build"),
     };
 
-        /*
     #[cfg(debug_assertions)]
     {
         let _child = std::process::Command::new("npm")
@@ -475,7 +474,6 @@ async fn server() {
             .spawn()
             .unwrap();
     }
-        */
 
     tracing_subscriber::registry()
         .with(
