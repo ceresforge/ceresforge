@@ -8,8 +8,8 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 argon2 = "0.5.3"
-axum = { version = "0.8.7", features = ["ws"] }
-axum-extra = { version = "0.12.2", features = ["cookie-private", "typed-header"] }
+axum = { version = "0.8.8", features = ["ws"] }
+axum-extra = { version = "0.12.3", features = ["cookie-private", "typed-header"] }
 base64ct = "1.8.1"
 clap = { version = "4.5.53", features = ["derive"] }
 flate2 = "1.1.5"
