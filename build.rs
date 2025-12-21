@@ -87,13 +87,13 @@ fn download_jet_brains_mono(
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=frontend");
     println!("cargo:rerun-if-changed=migrations");
+    println!("cargo:rerun-if-changed=apps/web");
 
     let package_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let package_dir = std::path::Path::new(&package_dir);
-    let frontend_dir = package_dir.join("frontend");
-    let static_dir = frontend_dir.join("static");
+    let web_dir = package_dir.join("apps").join("web");
+    let static_dir = web_dir.join("static");
 
     let inter_normal_path = static_dir.join(format!("inter-normal-{}.woff2", INTER_VERSION));
     let inter_italic_path = static_dir.join(format!("inter-italic-{}.woff2", INTER_VERSION));

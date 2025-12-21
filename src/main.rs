@@ -213,7 +213,7 @@ async fn fallback() -> impl IntoResponse {
     plain_404()
 }
 
-async fn frontend_proxy(
+async fn web_proxy(
     State(state): State<AppState>,
     headers: HeaderMap,
     OriginalUri(original_uri): OriginalUri,
@@ -298,7 +298,7 @@ async fn app() -> Router {
         .nest("/auth", auth::router())
         .nest_service("/api", api::service(&state))
         .method_not_allowed_fallback(method_not_allowed_fallback)
-        .fallback(get(frontend_proxy))
+        .fallback(get(web_proxy))
         .with_state(state)
 }
 
@@ -451,9 +451,9 @@ async fn csp_middleware(
 */
 
 async fn server() {
-    let frontend_dir = match std::env::var("FRONTEND_DIR") {
+    let web_dir = match std::env::var("WEB_DIR") {
         Ok(value) => std::path::PathBuf::from(value),
-        Err(_) => std::path::PathBuf::from("frontend/build"),
+        Err(_) => std::path::PathBuf::from("apps/web/build"),
     };
 
     #[cfg(debug_assertions)]
@@ -461,7 +461,7 @@ async fn server() {
         let _child = std::process::Command::new("npm")
             .arg("run")
             .arg("dev")
-            .current_dir(frontend_dir)
+            .current_dir(web_dir)
             .stdout(std::process::Stdio::null())
             .spawn()
             .unwrap();
@@ -469,7 +469,7 @@ async fn server() {
     #[cfg(not(debug_assertions))]
     {
         let _child = std::process::Command::new("node")
-            .arg(frontend_dir)
+            .arg(web_dir)
             .stdout(std::process::Stdio::null())
             .spawn()
             .unwrap();
