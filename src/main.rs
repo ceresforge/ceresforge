@@ -30,7 +30,6 @@ use axum::{
 use axum_extra::extract::cookie::Key;
 use base64ct::{Base64UrlUnpadded, Encoding};
 use clap::{Parser, Subcommand};
-use maud::{DOCTYPE, Markup, html};
 use reqwest::Client;
 use rsa::{RsaPrivateKey, pkcs8::DecodePrivateKey};
 use sqlx::postgres::{PgPool, PgPoolOptions};
@@ -39,9 +38,6 @@ use std::time::Duration;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
-const CSS_PATH: &str = "/ceresforge-0.0.2-dev.2.css";
-const SVG_PATH: &str = "/ceresforge-0.0.2-dev.1.svg";
 
 #[derive(Debug, clap::Parser)]
 struct Args {
@@ -133,46 +129,7 @@ async fn svg() -> impl IntoResponse {
         include_str!("../frontend/ceresforge.svg"),
     )
 }
-*/
 
-pub fn base(title: &str, description: &str, body: Markup) -> Markup {
-    html! {
-        (DOCTYPE)
-        html lang="en" {
-            head {
-                title {
-                    (title)
-                }
-                meta name="color-scheme" content="light dark";
-                meta name="description" content=(description);
-                meta name="viewport" content="width=device-width, initial-scale=1";
-                link rel="icon" href=(SVG_PATH) type="image/svg+xml";
-                link rel="stylesheet" href=(CSS_PATH);
-            }
-            body {
-                (body)
-            }
-        }
-    }
-}
-
-fn plain_fullscreen(title: &str, description: &str, status_code: StatusCode) -> impl IntoResponse {
-    (
-        status_code,
-        html! {
-            (base(title, description, html! {
-                div .full-screen {
-                    h1 {
-                        (title)
-                    }
-                    p {
-                        (description)
-                    }
-                }
-            }))
-        },
-    )
-}
 
 fn plain_400() -> Response {
     plain_fullscreen("400", "Bad Request.", StatusCode::BAD_REQUEST).into_response()
@@ -211,6 +168,11 @@ async fn method_not_allowed_fallback() -> impl IntoResponse {
 #[allow(dead_code)]
 async fn fallback() -> impl IntoResponse {
     plain_404()
+}
+*/
+
+async fn method_not_allowed_fallback() -> impl IntoResponse {
+    StatusCode::METHOD_NOT_ALLOWED
 }
 
 async fn web_proxy(

@@ -2,9 +2,8 @@ use crate::{
     AppState,
     api::{ApiResult, error::Unauthorized},
     auth::login_required_uri,
-    base,
     frontend::FrontendResult,
-    generate_secure_hash, plain_400,
+    generate_secure_hash,
     users::User,
 };
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
@@ -16,7 +15,6 @@ use axum::{
     routing::{get, post},
 };
 use axum_extra::headers::{Authorization, Header, authorization::Bearer};
-use maud::html;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::PgPool;
@@ -168,6 +166,8 @@ pub async fn create_client_redirect_uri(
 }
 
 fn authorize_form(path_and_query: &str) -> Response {
+    StatusCode::NOT_IMPLEMENTED.into_response()
+    /*
     let title = "Authorize";
     let description = "Allow?";
     html! {
@@ -189,6 +189,7 @@ fn authorize_form(path_and_query: &str) -> Response {
         }))
     }
     .into_response()
+    */
 }
 
 async fn authorize_get(user: Option<User>, uri: OriginalUri) -> FrontendResult<Response> {
@@ -219,12 +220,12 @@ async fn authorize_post(
         return Ok("Denied".into_response());
     }
     if params.response_type != "code" {
-        return Ok(plain_400());
+        return Ok(StatusCode::BAD_REQUEST.into_response());
     }
     let scopes = match params.scope {
         Some(ref scope) => match get_scopes(scope) {
             Ok(scopes) => scopes,
-            Err(_) => return Ok(plain_400()),
+            Err(_) => return Ok(StatusCode::BAD_REQUEST.into_response()),
         },
         None => vec![],
     };
@@ -242,18 +243,18 @@ async fn authorize_post(
     .await?;
 
     if records.len() == 0 {
-        return Ok(plain_400());
+        return Ok(StatusCode::BAD_REQUEST.into_response());
     }
     let redirect_uri = match params.redirect_uri {
         None => {
             if records.len() != 1 {
-                return Ok(plain_400());
+                return Ok(StatusCode::BAD_REQUEST.into_response());
             }
             &records[0].uri
         }
         Some(s) => match records.iter().find(|record| record.uri == *s) {
             Some(record) => &record.uri,
-            None => return Ok(plain_400()),
+            None => return Ok(StatusCode::BAD_REQUEST.into_response()),
         },
     };
 
@@ -291,7 +292,7 @@ async fn token(
     Form(payload): Form<TokenPayload>,
 ) -> FrontendResult<Response> {
     if payload.grant_type != "authorization_code" {
-        return Ok(plain_400());
+        return Ok(StatusCode::BAD_REQUEST.into_response());
     }
     let client_id = payload.client_id;
 
@@ -320,7 +321,7 @@ async fn token(
     .fetch_optional(pool)
     .await?;
     let record = match record {
-        None => return Ok(plain_400()),
+        None => return Ok(StatusCode::BAD_REQUEST.into_response()),
         Some(record) => record,
     };
 
@@ -339,7 +340,7 @@ async fn token(
     let verified =
         Argon2::default().verify_password(payload.client_secret.as_bytes(), &parsed_hash);
     if verified.is_err() {
-        return Ok(plain_400());
+        return Ok(StatusCode::BAD_REQUEST.into_response());
     }
 
     let result = sqlx::query!(
@@ -362,7 +363,7 @@ async fn token(
     .execute(pool)
     .await?;
     if result.rows_affected() == 0 {
-        return Ok(plain_400());
+        return Ok(StatusCode::BAD_REQUEST.into_response());
     }
 
     let access_token = generate_access_token();

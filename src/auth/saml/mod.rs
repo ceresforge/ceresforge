@@ -2,7 +2,7 @@ use super::{Params, already_logged_in, create_cookie};
 use crate::frontend::FrontendResult;
 use crate::record::{SamlAttribute, SamlProvider};
 use crate::users::User;
-use crate::{AppState, base, plain_400, plain_401, plain_404};
+use crate::AppState;
 use axum::extract::State;
 use axum::{
     Router,
@@ -15,7 +15,6 @@ use axum_extra::extract::PrivateCookieJar;
 use base64ct::{Base64, Encoding};
 use flate2::Compression;
 use flate2::write::DeflateEncoder;
-use maud::html;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use std::collections::HashMap;
@@ -570,6 +569,8 @@ fn transform_attributes(attribute_statement: &AttributeStatement) -> Vec<SamlAtt
 fn already_connected() -> Response {
     let title = "Connect";
     let description = "Already connected.";
+    StatusCode::NOT_IMPLEMENTED.into_response()
+    /*
     html! {
         (base(&title, description, html! {
             div .full-screen {
@@ -583,12 +584,15 @@ fn already_connected() -> Response {
         }))
     }
     .into_response()
+    */
 }
 
 fn already_connected_to_different_name_id() -> Response {
     let title = "Connect";
     let description =
         "Your account is already connected to a different identity from this provider.";
+    StatusCode::NOT_IMPLEMENTED.into_response()
+    /*
     html! {
         (base(&title, description, html! {
             div .full-screen {
@@ -602,11 +606,14 @@ fn already_connected_to_different_name_id() -> Response {
         }))
     }
     .into_response()
+    */
 }
 
 fn not_connected() -> Response {
     let title = "Login";
     let description = "Not connected.";
+    StatusCode::NOT_IMPLEMENTED.into_response()
+    /*
     html! {
         (base(&title, description, html! {
             div .full-screen {
@@ -620,6 +627,7 @@ fn not_connected() -> Response {
         }))
     }
     .into_response()
+    */
 }
 
 async fn verify_response(provider: &SamlProvider, xml: &str) -> Result<bool, std::io::Error> {
@@ -768,7 +776,7 @@ async fn acs(
     let pool = &state.pool;
     let provider = match get_saml_provider(&provider, pool).await? {
         Some(p) => p,
-        None => return Ok(plain_404()),
+        None => return Ok(StatusCode::NOT_FOUND.into_response()),
     };
 
     let saml_response = payload.saml_response;
@@ -777,21 +785,21 @@ async fn acs(
 
     let is_verified = verify_response(&provider, &xml).await?;
     if !is_verified {
-        return Ok(plain_400());
+        return Ok(StatusCode::BAD_REQUEST.into_response());
     }
 
     let response: SamlResponse = quick_xml::de::from_str(&xml)?;
 
     if response.status.status_code.value != "urn:oasis:names:tc:SAML:2.0:status:Success" {
-        return Ok(plain_400());
+        return Ok(StatusCode::BAD_REQUEST.into_response());
     }
     let uuid_str = match response.in_response_to.strip_prefix('_') {
         Some(s) => s,
-        None => return Ok(plain_400()),
+        None => return Ok(StatusCode::BAD_REQUEST.into_response()),
     };
     let uuid = match Uuid::from_str(uuid_str) {
         Ok(s) => s,
-        Err(_) => return Ok(plain_400()),
+        Err(_) => return Ok(StatusCode::BAD_REQUEST.into_response()),
     };
 
     let record = sqlx::query!(
@@ -811,13 +819,13 @@ async fn acs(
 
     let request = match record {
         Some(r) => r,
-        None => return Ok(plain_400()),
+        None => return Ok(StatusCode::BAD_REQUEST.into_response()),
     };
     if request.completed_at.is_some() {
-        return Ok(plain_400());
+        return Ok(StatusCode::BAD_REQUEST.into_response());
     }
     if request.provider_id != provider.id {
-        return Ok(plain_400());
+        return Ok(StatusCode::BAD_REQUEST.into_response());
     }
     let redirect = request.redirect.as_deref();
 
@@ -912,7 +920,7 @@ async fn acs(
                 let mapped_attributes: HashMap<String, String> =
                     match serde_json::from_value(provider.mapped_attributes) {
                         Ok(m) => m,
-                        Err(_) => return Ok(plain_400()), /* Site admin issue. */
+                        Err(_) => return Ok(StatusCode::BAD_REQUEST.into_response()), /* Site admin issue. */
                     };
                 let fields: HashMap<String, String> = attributes
                     .iter()
@@ -924,11 +932,11 @@ async fn acs(
                     .collect();
                 let username = match fields.get("username") {
                     Some(s) => s.as_str(),
-                    None => return Ok(plain_400()), /* Site admin issue. */
+                    None => return Ok(StatusCode::BAD_REQUEST.into_response()), /* Site admin issue. */
                 };
                 let email = match fields.get("email") {
                     Some(s) => s.as_str(),
-                    None => return Ok(plain_400()), /* Site admin issue. */
+                    None => return Ok(StatusCode::BAD_REQUEST.into_response()), /* Site admin issue. */
                 };
                 let first_name = fields.get("first_name");
                 let last_name = fields.get("last_name");
@@ -1031,7 +1039,7 @@ async fn login(
     let pool = &state.pool;
     let provider = match get_saml_provider(&provider, pool).await? {
         Some(p) => p,
-        None => return Ok(plain_404()),
+        None => return Ok(StatusCode::NOT_FOUND.into_response()),
     };
     if user.is_some() {
         return Ok(already_logged_in());
@@ -1049,10 +1057,10 @@ async fn connect(
     let pool = &state.pool;
     let provider = match get_saml_provider(&provider, pool).await? {
         Some(p) => p,
-        None => return Ok(plain_404()),
+        None => return Ok(StatusCode::NOT_FOUND.into_response()),
     };
     if user.is_none() {
-        return Ok(plain_401());
+        return Ok(StatusCode::UNAUTHORIZED.into_response());
     }
     let user_id = user.map(|u| u.id);
     create_saml_request(pool, &provider, user_id, params.redirect).await
@@ -1065,7 +1073,7 @@ async fn metadata(
     let pool = &state.pool;
     let provider = match get_saml_provider(&provider, pool).await? {
         Some(p) => p,
-        None => return Ok(plain_404()),
+        None => return Ok(StatusCode::NOT_FOUND.into_response()),
     };
 
     let base_url = std::env::var("BASE_URL")?;
@@ -1074,7 +1082,7 @@ async fn metadata(
 
     let requested_attributes = match provider.requested_attributes.as_array() {
         Some(v) => v,
-        None => return Ok(plain_400()), /* Site admin issue. */
+        None => return Ok(StatusCode::BAD_REQUEST.into_response()), /* Site admin issue. */
     };
 
     let mut entity_descriptor = EntityDescriptor {

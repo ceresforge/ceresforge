@@ -1,5 +1,5 @@
 use super::{Params, already_logged_in, create_cookie, redirect_uri};
-use crate::{AppState, base, frontend::FrontendResult};
+use crate::{AppState, frontend::FrontendResult};
 use crate::{auth::AuthError, users::User};
 use argon2::{
     Argon2,
@@ -12,7 +12,7 @@ use axum::{
     routing::get,
 };
 use axum_extra::extract::cookie::PrivateCookieJar;
-use maud::html;
+use reqwest::StatusCode;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -22,6 +22,8 @@ struct Payload {
 }
 
 fn login_form(err: Option<AuthError>, username: Option<&str>, redirect: Option<&str>) -> Response {
+    StatusCode::NOT_IMPLEMENTED.into_response()
+    /*
     let title = "Login";
     let description = "Please enter your username and password.";
     let action = redirect_uri("/auth/local/login", redirect.as_deref());
@@ -64,6 +66,7 @@ fn login_form(err: Option<AuthError>, username: Option<&str>, redirect: Option<&
         (base(title, description, body))
     }
     .into_response()
+    */
 }
 
 async fn verify(

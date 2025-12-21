@@ -15,7 +15,6 @@ clap = { version = "4.5.53", features = ["derive"] }
 flate2 = "1.1.5"
 futures = "0.3.31"
 hmac = "0.12.1"
-maud = { version = "0.27.0", features = ["axum"] }
 quick-xml = { version = "0.38.4", features = ["serialize", "serde-types"] }
 rand = "0.10.0-rc.5"
 reqwest = { version = "0.12.26", features = ["stream"] }

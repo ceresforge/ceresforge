@@ -4,7 +4,7 @@ pub mod saml; // TODO: Change to private
 
 use crate::frontend::FrontendResult;
 use crate::users::User;
-use crate::{AppState, base};
+use crate::AppState;
 use axum::extract::State;
 use axum::{
     Router,
@@ -14,7 +14,7 @@ use axum::{
 };
 use axum_extra::extract::PrivateCookieJar;
 use axum_extra::extract::cookie::Cookie;
-use maud::html;
+use reqwest::StatusCode;
 use serde::Deserialize;
 use sqlx::PgPool;
 use time::Duration;
@@ -78,6 +78,8 @@ pub fn login_required_uri(uri: &str, user: &Option<User>) -> String {
 }
 
 fn already_logged_in() -> Response {
+    StatusCode::NOT_IMPLEMENTED.into_response()
+    /*
     let title = "Login";
     let description = "You're already logged in.";
     html! {
@@ -93,9 +95,12 @@ fn already_logged_in() -> Response {
         }))
     }
     .into_response()
+    */
 }
 
 fn not_logged_in() -> Response {
+    StatusCode::NOT_IMPLEMENTED.into_response()
+    /*
     let title = "Logout";
     let description = "You're not logged in.";
     html! {
@@ -111,6 +116,7 @@ fn not_logged_in() -> Response {
         }))
     }
     .into_response()
+    */
 }
 
 fn generate_cookie_id() -> String {
@@ -162,6 +168,9 @@ async fn login(
     .fetch_all(pool)
     .await?;
 
+    Ok(StatusCode::NOT_IMPLEMENTED.into_response())
+
+    /*
     let title = "Login";
     let description = "Please log in using one of the available options.";
     let body = html! {
@@ -189,6 +198,7 @@ async fn login(
         (base(title, description, body))
     }
     .into_response())
+    */
 }
 
 async fn logout(
@@ -231,6 +241,9 @@ async fn auth(State(state): State<AppState>, user: Option<User>) -> FrontendResu
     .fetch_all(pool)
     .await?;
 
+    Ok(StatusCode::NOT_IMPLEMENTED.into_response())
+
+    /*
     let title = "Auth";
     let description = "Authenticate to CeresForge.";
     let body = html! {
@@ -269,6 +282,7 @@ async fn auth(State(state): State<AppState>, user: Option<User>) -> FrontendResu
         (base(title, description, body))
     }
     .into_response())
+    */
 }
 
 pub fn router() -> Router<AppState> {
