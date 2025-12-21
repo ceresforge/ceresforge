@@ -16,4 +16,4 @@ path = [
     "apps/web/**",
 ]
 SPDX-FileCopyrightText = "2025 Jonathan Eyolfson <jon@eyolfson.com>"
-SPDX-License-Identifier = "Apache-2.0 OR MIT"
+SPDX-License-Identifier = "MIT OR Apache-2.0"

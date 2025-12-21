@@ -21,7 +21,7 @@ podman run \
 
 ## License
 
-Licensed under the [Apache License, Version 2.0] or the [MIT License], at your option.
+Licensed under the [MIT License] or the [Apache License, Version 2.0], at your option.
 
 ## Contribution
 
