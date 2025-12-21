@@ -7,6 +7,6 @@ target/
 .env
 **/.DS_Store
 **/*.woff2
-frontend/.svelte-kit/
-frontend/build/
-frontend/node_modules/
+apps/web/.svelte-kit/
+apps/web/build/
+apps/web/node_modules/

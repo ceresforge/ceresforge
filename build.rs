@@ -118,7 +118,7 @@ fn main() {
         assert!(
             std::process::Command::new("pnpm")
                 .arg("install")
-                .current_dir(&frontend_dir)
+                .current_dir(&web_dir)
                 .status()
                 .unwrap()
                 .success()
@@ -127,7 +127,7 @@ fn main() {
             std::process::Command::new("npm")
                 .arg("run")
                 .arg("build")
-                .current_dir(frontend_dir)
+                .current_dir(web_dir)
                 .status()
                 .unwrap()
                 .success()

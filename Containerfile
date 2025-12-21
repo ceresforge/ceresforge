@@ -28,6 +28,6 @@ RUN apt-get update \
         xmlsec1 \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /package/target/release/ceresforge /usr/local/bin/ceresforge
-COPY --from=build /package/frontend/build /opt/ceresforge/frontend/
-ENV FRONTEND_DIR "/opt/ceresforge/frontend"
+COPY --from=build /package/apps/web/build /opt/ceresforge/apps/web/
+ENV WEB_DIR "/opt/ceresforge/apps/web"
 CMD ["ceresforge", "server"]
