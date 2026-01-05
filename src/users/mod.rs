@@ -86,7 +86,10 @@ pub async fn list_users(State(state): State<AppState>, user: Option<User>) -> Ap
         let users = sql::users(pool).await?;
         Ok(Json(users).into_response())
     } else {
+        /* 
         let public_users = sql::public_users(pool).await?;
         Ok(Json(public_users).into_response())
+        */
+        return Ok(StatusCode::UNAUTHORIZED.into_response());
     }
 }
