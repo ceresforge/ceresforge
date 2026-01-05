@@ -72,9 +72,10 @@ fn next_uri(uri: &str, redirect: Option<&str>) -> String {
     }
 }
 
+// TODO: this is hardcoded, it should also be moved only to the frontend
 pub fn login_required_uri(uri: &str, user: &Option<User>) -> String {
     if user.is_none() {
-        next_uri("/auth/login", Some(uri))
+        next_uri("/auth/saml/utoronto/login", Some(uri))
     } else {
         uri.to_string()
     }
