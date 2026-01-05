@@ -22,6 +22,7 @@
       <tr>
         <th>ID</th>
         <th>Username</th>
+        <th>Email</th>
         <th>Created</th>
       </tr>
     </thead>
@@ -30,6 +31,7 @@
         <tr>
           <td>{user.id}</td>
           <td><code>{user.username}</code></td>
+          <td><code>{user.email}</code></td>
           <td>{new Date(user.created_at).toLocaleDateString()}</td>
         </tr>
       {/each}
