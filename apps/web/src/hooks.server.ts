@@ -1,13 +1,10 @@
 import type { HandleFetch } from '@sveltejs/kit';
-import { NODE_ENV } from '$env/static/private';
 
-export const handleFetch: HandleFetch = async ({ request, fetch }) => {
-    let frontendUrl = NODE_ENV === 'production'
-                      ? 'https://localhost:3000'
-                      : 'http://localhost:5173';
-    if (request.url.startsWith(frontendUrl)) {
+export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
+    const url = new URL(request.url);
+    if (url.pathname.startsWith('/api') && url.origin === event.url.origin) {
         request = new Request(
-            request.url.replace(frontendUrl, 'http://127.0.0.1:8080'),
+            `http://127.0.0.1:8080${url.pathname}${url.search}`,
             request
         );
     }

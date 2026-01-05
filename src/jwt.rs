@@ -29,19 +29,19 @@ struct Payload {
 }
 
 #[derive(Debug, Serialize)]
-struct Jwks {
-    keys: Vec<Jwk>,
+pub struct Jwks {
+    pub keys: Vec<Jwk>,
 }
 
 #[derive(Debug, Serialize)]
-struct Jwk {
-    kty: &'static str,
+pub struct Jwk {
+    pub kty: &'static str,
     #[serde(rename = "use")]
-    key_use: &'static str,
-    alg: &'static str,
-    kid: String,
-    n: String,
-    e: String,
+    pub key_use: &'static str,
+    pub alg: &'static str,
+    pub kid: String,
+    pub n: String,
+    pub e: String,
 }
 
 pub fn calculate_jwk_thumbprint(public_key: &RsaPublicKey) -> String {
@@ -67,27 +67,40 @@ pub fn calculate_jwk_thumbprint(public_key: &RsaPublicKey) -> String {
     thumbprint
 }
 
-pub async fn jwks_handler(State(state): State<AppState>) -> impl IntoResponse {
-    let private_key = state.jwt_rsa_key;
-    let public_key = RsaPublicKey::from(&private_key);
+pub fn get_jwk(private_key: &RsaPrivateKey) -> Jwk {
+    let public_key = RsaPublicKey::from(private_key);
 
-    let kid = calculate_jwk_thumbprint(&public_key);
     let n = public_key.n().to_be_bytes_trimmed_vartime();
     let n = base64ct::Base64UrlUnpadded::encode_string(&n);
     let e = public_key.e().to_be_bytes_trimmed_vartime();
     let e = base64ct::Base64UrlUnpadded::encode_string(&e);
 
-    let jwks = Jwks {
-        keys: vec![Jwk {
-            kty: "RSA",
-            key_use: "sig",
-            alg: "RS256",
-            kid,
-            n,
-            e,
-        }],
-    };
+    // This is the required order for RSA public keys
+    let mut canonical_jwk = std::collections::BTreeMap::new();
+    canonical_jwk.insert("e", e.as_str());
+    canonical_jwk.insert("kty", "RSA");
+    canonical_jwk.insert("n", n.as_str());
 
+    let canonical_json = serde_json::to_string(&canonical_jwk).unwrap();
+
+    let mut hasher = Sha256::new();
+    hasher.update(canonical_json.as_bytes());
+    let hash_digest = hasher.finalize();
+
+    let thumbprint = Base64UrlUnpadded::encode_string(&hash_digest);
+
+    Jwk {
+        kty: "RSA",
+        key_use: "sig",
+        alg: "RS256",
+        kid: thumbprint,
+        e,
+        n,
+    }
+}
+
+pub async fn jwks_handler(State(state): State<AppState>) -> impl IntoResponse {
+    let jwks = crate::auth::sql::get_jwks(&state.pool).await.unwrap();
     Json(jwks)
 }
 

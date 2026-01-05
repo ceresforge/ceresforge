@@ -40,7 +40,7 @@
       },
       {
         "ordinal": 7,
-        "name": "is_user_creation_allowed",
+        "name": "allow_registration",
         "type_info": "Bool"
       },
       {

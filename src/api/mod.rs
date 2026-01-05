@@ -13,7 +13,7 @@ use axum::{
     extract::OriginalUri,
     http::{HeaderMap, Method},
     response::{IntoResponse, Response},
-    routing::{any, get},
+    routing::{any, get, post},
 };
 
 impl IntoResponse for ApiError {
@@ -48,6 +48,8 @@ pub fn service(state: &AppState) -> Router {
         .route("/ws", any(ws::handler))
         .route("/users", get(crate::users::list_users))
         .route("/users/self", get(crate::users::get_current_user))
+        .nest("/auth/local", crate::auth::local::routes())
+        .route("/auth/logout", post(crate::auth::logout))
         .nest("/forgejo", crate::forgejo::routes())
         .method_not_allowed_fallback(method_not_allowed_fallback)
         .fallback(fallback)

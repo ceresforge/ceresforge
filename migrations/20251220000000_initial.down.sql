@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS auth_jwks;
 DROP TABLE IF EXISTS auth_oauth2_client_consents;
 DROP TABLE IF EXISTS auth_oauth2_client_refresh_tokens;
 DROP TABLE IF EXISTS auth_oauth2_client_access_tokens;

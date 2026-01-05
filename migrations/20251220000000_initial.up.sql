@@ -147,7 +147,7 @@ CREATE TABLE IF NOT EXISTS auth_saml_providers (
         NOT NULL,
     mapped_attributes jsonb
         NOT NULL,
-    is_user_creation_allowed boolean
+    allow_registration boolean
         NOT NULL
         DEFAULT false,
     created_at timestamp with time zone
@@ -175,9 +175,9 @@ CREATE TABLE IF NOT EXISTS auth_saml_provider_requests (
     provider_id bigint
         NOT NULL
         REFERENCES auth_saml_providers(id) ON DELETE CASCADE,
-    redirect text
-        CONSTRAINT auth_saml_provider_requests_redirect_check
-        CHECK (redirect IS NULL OR char_length(redirect) > 0),
+    next text
+        CONSTRAINT auth_saml_provider_requests_next_check
+        CHECK (next IS NULL OR char_length(next) > 0),
     created_at timestamp with time zone
         NOT NULL
         DEFAULT now(),
@@ -456,3 +456,35 @@ CREATE TRIGGER auth_oauth2_client_consents_updated_at
     BEFORE UPDATE ON auth_oauth2_client_consents
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
+
+CREATE TABLE IF NOT EXISTS auth_jwks (
+    id bigint 
+        PRIMARY KEY 
+        GENERATED ALWAYS AS IDENTITY,
+    kid text 
+        NOT NULL 
+        UNIQUE 
+        CONSTRAINT auth_jwks_kid_check 
+        CHECK (
+            char_length(kid) > 0
+        ),
+    n text
+        NOT NULL
+        CHECK (
+            char_length(n) > 0
+            AND n ~ '^[A-Za-z0-9_-]+$'
+        ),
+    e text
+        NOT NULL
+        CHECK (
+            char_length(e) > 0
+            AND e ~ '^[A-Za-z0-9_-]+$'
+        ),
+    created_at timestamp with time zone 
+        NOT NULL 
+        DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS auth_jwks_kid_idx
+    ON auth_jwks
+    USING btree (kid);

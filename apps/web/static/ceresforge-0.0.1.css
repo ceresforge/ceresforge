@@ -79,6 +79,9 @@
   margin: 0;
   padding: 0;
 }
+.contents {
+  display: contents;
+}
 body {
   font-size: 0.8125rem;
   color: var(--default-color);
@@ -179,7 +182,6 @@ input {
   font-family: inherit;
   font-feature-settings: inherit;
   font-size: inherit;
-  text-align: center;
   color: var(--default-color);
   background-color: var(--subtle-background-color);
 

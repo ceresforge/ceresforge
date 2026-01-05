@@ -28,7 +28,7 @@ pub struct SamlProvider {
     pub sso_url: String,
     pub requested_attributes: JsonValue,
     pub mapped_attributes: JsonValue,
-    pub is_user_creation_allowed: bool,
+    pub allow_registration: bool,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,
 }

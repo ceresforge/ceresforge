@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT kid, n, e FROM auth_jwks ORDER BY created_at DESC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kid",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "n",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "e",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "b7b464b8e9c2a9edaacd6379b26070631cf702ee3ec82950783b9ff441c7770d"
+}

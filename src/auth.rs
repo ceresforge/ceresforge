@@ -1,10 +1,12 @@
-mod local;
+pub mod local;
 pub mod oauth2;
 pub mod saml; // TODO: Change to private
+pub mod sql;
 
+use crate::AppState;
+use crate::api::ApiResult;
 use crate::frontend::FrontendResult;
 use crate::users::User;
-use crate::AppState;
 use axum::extract::State;
 use axum::{
     Router,
@@ -13,7 +15,7 @@ use axum::{
     routing::get,
 };
 use axum_extra::extract::PrivateCookieJar;
-use axum_extra::extract::cookie::Cookie;
+use axum_extra::extract::cookie::{Cookie, Key};
 use reqwest::StatusCode;
 use serde::Deserialize;
 use sqlx::PgPool;
@@ -46,7 +48,7 @@ fn is_valid_redirect(redirect: &str) -> bool {
 }
 
 use serde::Deserializer;
-fn deserialize_redirect<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+fn deserialize_next<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -56,8 +58,8 @@ where
 
 #[derive(Deserialize)]
 struct Params {
-    #[serde(default, deserialize_with = "deserialize_redirect")]
-    redirect: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_next")]
+    next: Option<String>,
 }
 
 fn redirect_uri(uri: &str, redirect: Option<&str>) -> String {
@@ -123,11 +125,30 @@ fn generate_cookie_id() -> String {
     generate_secure_string!(32)
 }
 
-async fn create_cookie(
+async fn create_cookie(pool: &PgPool, key: &Key, user_id: i64) -> ApiResult<(String, String)> {
+    let id = generate_cookie_id();
+    sqlx::query!(
+        "INSERT INTO auth_cookies (id, user_id) VALUES ($1, $2)",
+        id,
+        user_id
+    )
+    .execute(pool)
+    .await?;
+
+    let mut jar = cookie::CookieJar::new();
+    jar.private_mut(key).add(Cookie::new("id", id));
+    let plain = jar.get("id").cloned().unwrap();
+    let name = plain.name().to_string();
+    let value = plain.value().to_string();
+    Ok((name, value))
+}
+
+/* TODO, delete? */
+async fn create_cookie_frontend(
     pool: &PgPool,
     jar: PrivateCookieJar,
     user_id: i64,
-    redirect: Option<&str>,
+    next: Option<&str>,
 ) -> FrontendResult<Response> {
     let id = generate_cookie_id();
     sqlx::query!(
@@ -145,7 +166,7 @@ async fn create_cookie(
     let updated_jar = jar.add(cookie);
     Ok((
         updated_jar,
-        Redirect::to(redirect.unwrap_or("/")).into_response(),
+        Redirect::to(next.unwrap_or("/")).into_response(),
     )
         .into_response())
 }
@@ -158,7 +179,7 @@ async fn login(
     if user.is_some() {
         return Ok(already_logged_in());
     }
-    let redirect = params.redirect.as_deref();
+    let next = params.next.as_deref();
 
     let pool = &state.pool;
     let providers = sqlx::query_as!(
@@ -201,7 +222,7 @@ async fn login(
     */
 }
 
-async fn logout(
+async fn logout_frontend(
     user: Option<User>,
     jar: PrivateCookieJar,
     State(state): State<AppState>,
@@ -228,6 +249,36 @@ async fn logout(
 
             let updated_jar = jar.add(cookie);
             Ok((updated_jar, redirect).into_response())
+        }
+    }
+}
+
+pub async fn logout(
+    user: Option<User>,
+    jar: PrivateCookieJar,
+    State(state): State<AppState>,
+) -> ApiResult<Response> {
+    if user.is_none() {
+        return Ok(not_logged_in());
+    }
+    let pool = &state.pool;
+    match jar.get("id") {
+        None => Ok(StatusCode::BAD_REQUEST.into_response()),
+        Some(cookie) => {
+            let id = cookie.value_trimmed().to_string();
+            sqlx::query!("DELETE FROM auth_cookies WHERE id = $1", &id)
+                .execute(pool)
+                .await?;
+
+            let cookie = Cookie::build(("id", id))
+                .path("/")
+                .http_only(true)
+                .secure(true)
+                .same_site(axum_extra::extract::cookie::SameSite::Lax)
+                .max_age(Duration::ZERO);
+
+            let updated_jar = jar.add(cookie);
+            Ok((updated_jar, StatusCode::OK.into_response()).into_response())
         }
     }
 }
@@ -289,8 +340,8 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/", get(auth))
         .route("/login", get(login))
-        .route("/logout", get(logout))
-        .nest("/local", local::routes())
+        .route("/logout", get(logout_frontend))
+        // .nest("/local", local::routes())
         .nest("/oauth2", oauth2::routes())
         .nest("/saml", saml::routes())
 }

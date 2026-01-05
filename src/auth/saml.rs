@@ -1,8 +1,8 @@
-use super::{Params, already_logged_in, create_cookie};
+use super::{Params, already_logged_in, create_cookie_frontend};
+use crate::AppState;
 use crate::frontend::FrontendResult;
 use crate::record::{SamlAttribute, SamlProvider};
 use crate::users::User;
-use crate::AppState;
 use axum::extract::State;
 use axum::{
     Router,
@@ -827,7 +827,7 @@ async fn acs(
     if request.provider_id != provider.id {
         return Ok(StatusCode::BAD_REQUEST.into_response());
     }
-    let redirect = request.redirect.as_deref();
+    let next = request.next.as_deref();
 
     let name_id = response.assertion.subject.name_id.value;
     let attributes = transform_attributes(&response.assertion.attribute_statement);
@@ -873,7 +873,7 @@ async fn acs(
                         &attributes_json,
                     )
                     .await?;
-                    return Ok(Redirect::to(redirect.unwrap_or("/")).into_response());
+                    return Ok(Redirect::to(next.unwrap_or("/")).into_response());
                 }
             }
             None => {
@@ -896,7 +896,7 @@ async fn acs(
                 if result.rows_affected() == 0 {
                     return Ok(already_connected_to_different_name_id());
                 }
-                Ok(Redirect::to(redirect.unwrap_or("/")).into_response())
+                Ok(Redirect::to(next.unwrap_or("/")).into_response())
             }
         },
         /* Login */
@@ -911,17 +911,18 @@ async fn acs(
                     &attributes_json,
                 )
                 .await?;
-                create_cookie(pool, jar, provider_id, redirect).await
+                create_cookie_frontend(pool, jar, provider_id, next).await
             }
             None => {
-                if !provider.is_user_creation_allowed {
+                if !provider.allow_registration {
                     return Ok(not_connected());
                 }
-                let mapped_attributes: HashMap<String, String> =
-                    match serde_json::from_value(provider.mapped_attributes) {
-                        Ok(m) => m,
-                        Err(_) => return Ok(StatusCode::BAD_REQUEST.into_response()), /* Site admin issue. */
-                    };
+                let mapped_attributes: HashMap<String, String> = match serde_json::from_value(
+                    provider.mapped_attributes,
+                ) {
+                    Ok(m) => m,
+                    Err(_) => return Ok(StatusCode::BAD_REQUEST.into_response()), /* Site admin issue. */
+                };
                 let fields: HashMap<String, String> = attributes
                     .iter()
                     .filter_map(|a| {
@@ -970,7 +971,7 @@ async fn acs(
                 .execute(pool)
                 .await?;
 
-                create_cookie(pool, jar, user_id, redirect).await
+                create_cookie_frontend(pool, jar, user_id, next).await
             }
         },
     }
@@ -980,7 +981,7 @@ async fn create_saml_request(
     pool: &PgPool,
     provider: &SamlProvider,
     user_id: Option<i64>,
-    redirect: Option<String>,
+    next: Option<String>,
 ) -> FrontendResult<Response> {
     let base_url = std::env::var("BASE_URL")?;
     let entity_id = format!("{}/auth/saml/metadata/{}", &base_url, &provider.slug);
@@ -1017,13 +1018,13 @@ async fn create_saml_request(
     );
     sqlx::query!(
         r#"
-        INSERT INTO auth_saml_provider_requests (external_id, user_id, provider_id, redirect)
+        INSERT INTO auth_saml_provider_requests (external_id, user_id, provider_id, next)
         VALUES ($1, $2, $3, $4)
         "#,
         uuid,
         user_id,
         provider.id,
-        redirect,
+        next,
     )
     .execute(pool)
     .await?;
@@ -1045,7 +1046,7 @@ async fn login(
         return Ok(already_logged_in());
     }
     let user_id = user.map(|u| u.id);
-    create_saml_request(pool, &provider, user_id, params.redirect).await
+    create_saml_request(pool, &provider, user_id, params.next).await
 }
 
 async fn connect(
@@ -1063,10 +1064,10 @@ async fn connect(
         return Ok(StatusCode::UNAUTHORIZED.into_response());
     }
     let user_id = user.map(|u| u.id);
-    create_saml_request(pool, &provider, user_id, params.redirect).await
+    create_saml_request(pool, &provider, user_id, params.next).await
 }
 
-async fn metadata(
+pub async fn metadata(
     State(state): State<AppState>,
     Path(provider): Path<String>,
 ) -> FrontendResult<Response> {

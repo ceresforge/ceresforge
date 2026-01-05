@@ -20,24 +20,36 @@ mod record;
 mod users;
 mod webfinger;
 
+use crate::auth::saml;
 use argon2::{
     Argon2,
     password_hash::{PasswordHasher, SaltString, rand_core::OsRng},
 };
 use axum::{
-    body::Body, extract::{FromRef, OriginalUri, State}, http::{HeaderMap, StatusCode}, response::{IntoResponse, Response}, routing::get, Router
+    Router,
+    body::Body,
+    extract::{FromRef, OriginalUri, State, WebSocketUpgrade},
+    http::{HeaderMap, Request, StatusCode, Uri, header},
+    response::{IntoResponse, Response},
+    routing::get,
 };
 use axum_extra::extract::cookie::Key;
 use base64ct::{Base64UrlUnpadded, Encoding};
 use clap::{Parser, Subcommand};
-use reqwest::Client;
+use hyper_util::{
+    client::legacy::{Client, connect::HttpConnector},
+    rt::TokioExecutor,
+};
 use rsa::{RsaPrivateKey, pkcs8::DecodePrivateKey};
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use std::io::{Write, stdin, stdout};
 use std::time::Duration;
+use tokio::{io::AsyncBufReadExt, signal};
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+use crate::auth::sql::add_jwk;
 
 #[derive(Debug, clap::Parser)]
 struct Args {
@@ -51,9 +63,7 @@ enum Command {
     CreateOauth2Client,
     GenerateCookieKey,
     Migrate,
-    MigrateUndo {
-        target: i64,
-    },
+    MigrateUndo { target: i64 },
     Server,
 }
 
@@ -62,7 +72,7 @@ struct AppState {
     pool: PgPool,
     key: Key,
     jwt_rsa_key: RsaPrivateKey,
-    client: Client,
+    client: Client<HttpConnector, Body>,
 }
 
 impl FromRef<AppState> for Key {
@@ -175,49 +185,37 @@ async fn method_not_allowed_fallback() -> impl IntoResponse {
     StatusCode::METHOD_NOT_ALLOWED
 }
 
-async fn web_proxy(
+async fn proxy(
     State(state): State<AppState>,
-    headers: HeaderMap,
-    OriginalUri(original_uri): OriginalUri,
-) -> impl IntoResponse {
-    let frontend_port = match cfg!(debug_assertions) {
-        true => 5173,
-        false => 3000,
-    };
-    for (header_name, header_value) in &headers {
-        println!("Backend {} {:?}", header_name, header_value);
+    mut req: Request<Body>,
+) -> Result<Response, StatusCode> {
+    let is_websocket = req
+        .headers()
+        .get(axum::http::header::UPGRADE)
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.to_lowercase() == "websocket")
+        .unwrap_or(false);
+    if is_websocket {
+        return Err(StatusCode::NOT_IMPLEMENTED);
     }
-    let frontend_url = format!("http://localhost:{}{}", frontend_port, original_uri);
-    match state.client.get(&frontend_url).send().await {
-        Ok(frontend_response) => {
-            let mut response_builder = Response::builder().status(frontend_response.status());
 
-            // Copy headers from frontend response to our response
-            for (header_name, header_value) in frontend_response.headers() {
-                println!("Frontend {} {:?}", header_name, header_value);
-                response_builder = response_builder.header(header_name, header_value);
-            }
+    let sveltekit_port = if cfg!(debug_assertions) { 5173 } else { 3000 };
+    let path = req.uri().path();
+    let path_query = req
+        .uri()
+        .path_and_query()
+        .map(|v| v.as_str())
+        .unwrap_or(path);
+    let uri = format!("http://127.0.0.1:{sveltekit_port}{path_query}");
+    *req.uri_mut() = Uri::try_from(uri).unwrap();
+    req.headers_mut().remove(header::HOST);
 
-            // Stream the body
-            let stream = frontend_response.bytes_stream();
-            let body = axum::body::Body::from_stream(stream);
-
-            response_builder.body(body).unwrap_or_else(|e| {
-                eprintln!("Error building proxy response: {}", e);
-                Response::builder()
-                    .status(500)
-                    .body(Body::from("Internal Server Error"))
-                    .unwrap()
-            })
-        }
-        Err(e) => {
-            eprintln!("Error proxying request to frontend: {}", e);
-            Response::builder()
-                .status(502) // Bad Gateway
-                .body(Body::empty())
-                .unwrap()
-        }
-    }
+    Ok(state
+        .client
+        .request(req)
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?
+        .into_response())
 }
 
 async fn app() -> Router {
@@ -241,7 +239,10 @@ async fn app() -> Router {
     let jwt_rsa_key_pem = String::from_utf8(jwt_rsa_key_pem).unwrap();
     let jwt_rsa_key = RsaPrivateKey::from_pkcs8_pem(&jwt_rsa_key_pem).unwrap();
 
-    let client = Client::new();
+    let jwk = crate::jwt::get_jwk(&jwt_rsa_key);
+    add_jwk(&pool, &jwk).await.unwrap();
+
+    let client = Client::builder(TokioExecutor::new()).build(HttpConnector::new());
 
     let state = AppState {
         pool,
@@ -253,14 +254,15 @@ async fn app() -> Router {
     Router::new()
         .route("/.well-known/webfinger", get(crate::webfinger::handler))
         .route("/.well-known/jwks.json", get(crate::jwt::jwks_handler))
+        .route("/metadata/{provider}", get(saml::metadata))
         .route(
             "/.well-known/openid-configuration",
             get(crate::openid_configuration::handler),
         )
-        .nest("/auth", auth::router())
+        // .nest("/auth", auth::router())
         .nest_service("/api", api::service(&state))
         .method_not_allowed_fallback(method_not_allowed_fallback)
-        .fallback(get(web_proxy))
+        .fallback(proxy)
         .with_state(state)
 }
 
@@ -412,48 +414,118 @@ async fn csp_middleware(
 }
 */
 
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => { },
+        _ = terminate => { },
+    }
+}
+
 async fn server() {
     let web_dir = match std::env::var("WEB_DIR") {
         Ok(value) => std::path::PathBuf::from(value),
         Err(_) => std::path::PathBuf::from("apps/web/build"),
     };
 
-    #[cfg(debug_assertions)]
-    {
-        let _child = std::process::Command::new("npm")
-            .arg("run")
-            .arg("dev")
+    let mut child = if cfg!(debug_assertions) {
+        tokio::process::Command::new("npm")
+            .args(["run", "dev"])
             .current_dir(web_dir)
-            .stdout(std::process::Stdio::null())
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
             .spawn()
-            .unwrap();
-    }
-    #[cfg(not(debug_assertions))]
-    {
-        let _child = std::process::Command::new("node")
+            .unwrap()
+    } else {
+        tokio::process::Command::new("node")
             .arg(web_dir)
-            .stdout(std::process::Stdio::null())
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
             .spawn()
-            .unwrap();
-    }
+            .unwrap()
+    };
+
+    let stdin = child.stdin.take().unwrap();
+    let stdout = child.stdout.take().unwrap();
+    let stderr = child.stderr.take().unwrap();
 
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                format!("{}=debug,tower_http=debug", env!("CARGO_CRATE_NAME")).into()
+                format!(
+                    "{}=debug,sveltekit=debug,tower_http=debug",
+                    env!("CARGO_CRATE_NAME")
+                )
+                .into()
             }),
         )
-        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::fmt::layer().compact())
         .init();
+
+    tokio::spawn(async move {
+        let mut reader = tokio::io::BufReader::new(stdout).lines();
+        while let Ok(Some(line)) = reader.next_line().await {
+            let line = line.trim();
+            if !line.is_empty() {
+                tracing::debug!(target: "sveltekit", "{}", line);
+            }
+        }
+    });
+
+    tokio::spawn(async move {
+        let mut reader = tokio::io::BufReader::new(stderr).lines();
+        while let Ok(Some(line)) = reader.next_line().await {
+            let line = line.trim();
+            if !line.is_empty() {
+                tracing::error!(target: "sveltekit", "{}", line);
+            }
+        }
+    });
 
     let addr = std::net::SocketAddr::from(([0, 0, 0, 0], 8080));
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    tracing::debug!("listening on {}", listener.local_addr().unwrap());
+    tracing::debug!("Listening on http://{}", listener.local_addr().unwrap());
 
     let app = app().await.layer(
-        ServiceBuilder::new().layer(TraceLayer::new_for_http()), // .layer(axum::middleware::from_fn(csp_middleware)),
+        ServiceBuilder::new().layer(TraceLayer::new_for_http().on_request(())), // .layer(axum::middleware::from_fn(csp_middleware)),
     );
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .unwrap();
+
+    drop(stdin);
+    match tokio::time::timeout(Duration::from_secs(3), child.wait()).await {
+        Ok(Ok(status)) => {
+            tracing::debug!(target: "sveltekit", "exited with {status}");
+        }
+        Ok(Err(err)) => {
+            tracing::error!(target: "sveltekit", "{err}");
+            let _ = child.kill().await;
+        }
+        Err(_) => {
+            tracing::warn!(target: "sveltekit", "timeout");
+            let _ = child.kill().await;
+        }
+    }
 }
 
 fn main() {
