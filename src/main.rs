@@ -267,7 +267,7 @@ async fn app() -> Router {
         .route("/.well-known/webfinger", get(crate::webfinger::handler))
         .route("/.well-known/jwks.json", get(crate::jwt::jwks_handler))
         .route("/auth/oauth2/authorize", get(oauth2::authorize))
-        .route("/auth/oauth2/token", post(oauth2::userinfo))
+        .route("/auth/oauth2/token", post(oauth2::token))
         .route("/auth/oauth2/userinfo", get(oauth2::userinfo))
         .route("/auth/saml/login/{provider}", get(saml::login))
         .route("/auth/saml/connect/{provider}", get(saml::connect))
