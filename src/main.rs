@@ -199,16 +199,25 @@ async fn proxy(
         return Err(StatusCode::NOT_IMPLEMENTED);
     }
 
-    let sveltekit_port = if cfg!(debug_assertions) { 5173 } else { 3000 };
+    const SVELTEKIT_ORIGIN: &str = if cfg!(debug_assertions) {
+        "http://127.0.0.1:5173"
+    } else {
+        "http://127.0.0.1:3000"
+    };
+
     let path = req.uri().path();
     let path_query = req
         .uri()
         .path_and_query()
         .map(|v| v.as_str())
         .unwrap_or(path);
-    let uri = format!("http://127.0.0.1:{sveltekit_port}{path_query}");
+    let uri = format!("{SVELTEKIT_ORIGIN}{path_query}");
     *req.uri_mut() = Uri::try_from(uri).unwrap();
     req.headers_mut().remove(header::HOST);
+    req.headers_mut().insert(
+        header::ORIGIN,
+        header::HeaderValue::from_static(SVELTEKIT_ORIGIN),
+    );
 
     Ok(state
         .client
@@ -242,7 +251,7 @@ async fn app() -> Router {
     let jwk = crate::jwt::get_jwk(&jwt_rsa_key);
     match add_jwk(&pool, &jwk).await {
         Ok(_) => (),
-        Err(_) => () // TODO
+        Err(_) => (), // TODO
     }
 
     let client = Client::builder(TokioExecutor::new()).build(HttpConnector::new());

@@ -21,6 +21,7 @@ use serde::Deserialize;
 use sqlx::PgPool;
 use time::Duration;
 
+#[derive(Debug)]
 enum AuthError {
     UsernameNotFound,
     NoPasswordSet,
