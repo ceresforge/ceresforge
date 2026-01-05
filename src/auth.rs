@@ -63,10 +63,10 @@ pub struct Params {
     next: Option<String>,
 }
 
-fn redirect_uri(uri: &str, redirect: Option<&str>) -> String {
+fn next_uri(uri: &str, redirect: Option<&str>) -> String {
     if let Some(s) = redirect {
         let value = urlencoding::encode(s);
-        format!("{}?redirect={}", uri, value)
+        format!("{}?next={}", uri, value)
     } else {
         uri.to_string()
     }
@@ -74,7 +74,7 @@ fn redirect_uri(uri: &str, redirect: Option<&str>) -> String {
 
 pub fn login_required_uri(uri: &str, user: &Option<User>) -> String {
     if user.is_none() {
-        redirect_uri("/auth/login", Some(uri))
+        next_uri("/auth/login", Some(uri))
     } else {
         uri.to_string()
     }
@@ -335,14 +335,4 @@ async fn auth(State(state): State<AppState>, user: Option<User>) -> FrontendResu
     }
     .into_response())
     */
-}
-
-pub fn router() -> Router<AppState> {
-    Router::new()
-        .route("/", get(auth))
-        .route("/login", get(login))
-        .route("/logout", get(logout_frontend))
-        // .nest("/local", local::routes())
-        .nest("/oauth2", oauth2::routes())
-        .nest("/saml", saml::routes())
 }

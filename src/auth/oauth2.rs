@@ -40,7 +40,7 @@ pub struct Client {
 }
 
 #[derive(Debug, Deserialize)]
-struct AuthorizeParams {
+pub struct AuthorizeParams {
     response_type: String,
     client_id: String,
     redirect_uri: Option<String>,
@@ -54,7 +54,7 @@ struct Payload {
 }
 
 #[derive(Debug, Deserialize)]
-struct TokenPayload {
+pub struct TokenPayload {
     grant_type: String,
     code: String,
     client_id: String,
@@ -192,33 +192,17 @@ fn authorize_form(path_and_query: &str) -> Response {
     */
 }
 
-async fn authorize_get(user: Option<User>, uri: OriginalUri) -> FrontendResult<Response> {
-    let path_and_query = uri.path_and_query().unwrap().as_str();
-    if user.is_none() {
-        return Ok(Redirect::temporary(&login_required_uri(path_and_query, &user)).into_response());
-    }
-    Ok(authorize_form(path_and_query))
-}
-
-async fn authorize_post(
+pub async fn authorize(
     State(state): State<AppState>,
     user: Option<User>,
     uri: OriginalUri,
     Query(params): Query<AuthorizeParams>,
-    Form(payload): Form<Payload>,
 ) -> FrontendResult<Response> {
     let path_and_query = uri.path_and_query().unwrap().as_str();
     let user = match user {
         Some(user) => user,
-        None => {
-            return Ok(
-                Redirect::temporary(&login_required_uri(path_and_query, &user)).into_response(),
-            );
-        }
+        None => return Ok(Redirect::temporary(&login_required_uri(path_and_query, &user)).into_response()),
     };
-    if payload.action != "allow" {
-        return Ok("Denied".into_response());
-    }
     if params.response_type != "code" {
         return Ok(StatusCode::BAD_REQUEST.into_response());
     }
@@ -287,7 +271,7 @@ async fn authorize_post(
 }
 
 // TODO: no-cache and no-store headers
-async fn token(
+pub async fn token(
     State(state): State<AppState>,
     Form(payload): Form<TokenPayload>,
 ) -> FrontendResult<Response> {
@@ -451,7 +435,7 @@ impl AccessToken {
     }
 }
 
-async fn userinfo(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<Response> {
+pub async fn userinfo(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<Response> {
     let access_token = AccessToken::from_headers(&headers, &state).await?;
     let scopes = get_scopes(&access_token.scope).map_err(|_| Unauthorized::new())?;
     if !scopes.contains(&"openid") {
@@ -480,11 +464,4 @@ async fn userinfo(State(state): State<AppState>, headers: HeaderMap) -> ApiResul
     }
 
     Ok(Json(claims).into_response())
-}
-
-pub fn routes() -> Router<AppState> {
-    Router::new()
-        .route("/authorize", get(authorize_get).post(authorize_post))
-        .route("/token", post(token))
-        .route("/userinfo", get(userinfo))
 }

@@ -20,7 +20,7 @@ mod record;
 mod users;
 mod webfinger;
 
-use crate::auth::saml;
+use crate::auth::{oauth2, saml};
 use argon2::{
     Argon2,
     password_hash::{PasswordHasher, SaltString, rand_core::OsRng},
@@ -266,6 +266,9 @@ async fn app() -> Router {
     Router::new()
         .route("/.well-known/webfinger", get(crate::webfinger::handler))
         .route("/.well-known/jwks.json", get(crate::jwt::jwks_handler))
+        .route("/auth/oauth2/authorize", get(oauth2::authorize))
+        .route("/auth/oauth2/token", post(oauth2::userinfo))
+        .route("/auth/oauth2/userinfo", get(oauth2::userinfo))
         .route("/auth/saml/login/{provider}", get(saml::login))
         .route("/auth/saml/connect/{provider}", get(saml::connect))
         .route("/auth/saml/acs/{provider}", post(saml::acs))

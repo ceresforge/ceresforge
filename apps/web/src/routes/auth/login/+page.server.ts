@@ -2,10 +2,11 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions } from './$types';
 
 export const actions = {
-	default: async ({ cookies, fetch, request }) => {
+	default: async ({ cookies, fetch, request, url }) => {
 		const formData = await request.formData();
 		const username = formData.get('username');
 		const password = formData.get('password');
+		const next = url.searchParams.get('next') || '/';
 		
 		const response = await fetch("/api/auth/local/login", {
             method: "POST",
@@ -26,6 +27,6 @@ export const actions = {
                 sameSite: 'lax',
             });
 		}
-		throw redirect(303, data.next || '/');
+		throw redirect(303, next);
 	}
 } satisfies Actions;
