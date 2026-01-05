@@ -240,7 +240,10 @@ async fn app() -> Router {
     let jwt_rsa_key = RsaPrivateKey::from_pkcs8_pem(&jwt_rsa_key_pem).unwrap();
 
     let jwk = crate::jwt::get_jwk(&jwt_rsa_key);
-    add_jwk(&pool, &jwk).await.unwrap();
+    match add_jwk(&pool, &jwk).await {
+        Ok(_) => (),
+        Err(_) => () // TODO
+    }
 
     let client = Client::builder(TokioExecutor::new()).build(HttpConnector::new());
 
