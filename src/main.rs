@@ -31,7 +31,7 @@ use axum::{
     extract::{FromRef, OriginalUri, State, WebSocketUpgrade},
     http::{HeaderMap, Request, StatusCode, Uri, header},
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, post},
 };
 use axum_extra::extract::cookie::Key;
 use base64ct::{Base64UrlUnpadded, Encoding};
@@ -266,7 +266,11 @@ async fn app() -> Router {
     Router::new()
         .route("/.well-known/webfinger", get(crate::webfinger::handler))
         .route("/.well-known/jwks.json", get(crate::jwt::jwks_handler))
-        .route("/metadata/{provider}", get(saml::metadata))
+        .route("/auth/saml/login/{provider}", get(saml::login))
+        .route("/auth/saml/connect/{provider}", get(saml::connect))
+        .route("/auth/saml/acs/{provider}", post(saml::acs))
+        .route("/auth/saml/metadata/{provider}", get(saml::metadata))
+
         .route(
             "/.well-known/openid-configuration",
             get(crate::openid_configuration::handler),

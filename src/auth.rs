@@ -58,7 +58,7 @@ where
 }
 
 #[derive(Deserialize)]
-struct Params {
+pub struct Params {
     #[serde(default, deserialize_with = "deserialize_next")]
     next: Option<String>,
 }

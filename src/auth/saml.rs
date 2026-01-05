@@ -26,7 +26,7 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
-struct Payload {
+pub struct Payload {
     #[serde(rename = "SAMLResponse")]
     saml_response: String,
 }
@@ -767,7 +767,7 @@ async fn get_pem(provider: &SamlProvider) -> PathBuf {
     pem_path
 }
 
-async fn acs(
+pub async fn acs(
     State(state): State<AppState>,
     jar: PrivateCookieJar,
     Path(provider): Path<String>,
@@ -1031,7 +1031,7 @@ async fn create_saml_request(
     Ok(Redirect::to(&uri).into_response())
 }
 
-async fn login(
+pub async fn login(
     State(state): State<AppState>,
     user: Option<User>,
     Query(params): Query<Params>,
@@ -1049,7 +1049,7 @@ async fn login(
     create_saml_request(pool, &provider, user_id, params.next).await
 }
 
-async fn connect(
+pub async fn connect(
     State(state): State<AppState>,
     user: Option<User>,
     Query(params): Query<Params>,
