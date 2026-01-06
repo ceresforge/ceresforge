@@ -1,3 +1,5 @@
+pub mod client;
+
 use crate::AppState;
 use crate::api::{
     ApiResult,
@@ -9,8 +11,9 @@ use crate::api::{
 
 use axum::{Json, Router, body::Bytes, http::HeaderMap, routing::post};
 use hmac::{Hmac, Mac};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sha2::Sha256;
+use std::collections::HashMap;
 
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
@@ -20,20 +23,44 @@ struct User {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
-struct Organization {
-    id: i64,
-    username: String,
+#[derive(Clone, Debug, Deserialize)]
+pub struct Organization {
+    pub avatar_url: String,
+    pub description: String,
+    pub email: String,
+    pub full_name: String,
+    pub id: i64,
+    pub location: String,
+    pub name: String,
+    pub repo_admin_change_team_access: bool,
+    pub visibility: String,
+    #[deprecated(note = "Please use the `name` field instead")]
+    pub username: String,
+    pub website: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, PartialEq, PartialOrd, Clone, Copy)]
+#[serde(rename_all = "lowercase")]
+pub enum Permission {
+    None,
+    Read,
+    Write,
+    Admin,
+    Owner,
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Deserialize)]
-struct Team {
-    id: i64,
-    slug: String,
-    name: String,
-    privacy: String,
-    permission: String,
+#[derive(Clone, Debug, Deserialize)]
+pub struct Team {
+    pub can_create_org_repo: bool,
+    pub description: String,
+    pub id: i64,
+    pub includes_all_repositories: bool,
+    pub name: String,
+    pub organization: Option<Organization>,
+    pub permission: Permission,
+    pub units: Vec<String>,
+    pub units_map: HashMap<String, Permission>,
 }
 
 #[allow(dead_code)]
@@ -141,6 +168,10 @@ fn handle_event(event: &str, bytes: &Bytes) -> ApiResult<()> {
         "membership" => {
             let Json(_membership): Json<Membership> = Json::from_bytes(&bytes)?;
         }
+        /*
+        "repository" => {
+        }
+        */
         _ => return Err(UnsupportedWebhookEvent::new(event.to_string()).into()),
     }
     Ok(())

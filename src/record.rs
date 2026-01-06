@@ -29,6 +29,7 @@ pub struct SamlProvider {
     pub requested_attributes: JsonValue,
     pub mapped_attributes: JsonValue,
     pub allow_registration: bool,
+    pub allow_auto_connection: bool,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,
 }

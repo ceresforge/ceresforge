@@ -52,6 +52,11 @@
         "ordinal": 9,
         "name": "updated_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "allow_auto_connection",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
@@ -60,6 +65,7 @@
       ]
     },
     "nullable": [
+      false,
       false,
       false,
       false,

@@ -11,6 +11,7 @@ macro_rules! generate_secure_string {
 
 mod api;
 mod auth;
+mod canvas;
 mod extract;
 mod forgejo;
 mod frontend;
@@ -59,8 +60,10 @@ struct Args {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    CanvasClient,
     CreateAdmin,
     CreateOauth2Client,
+    ForgejoClient,
     GenerateCookieKey,
     Migrate,
     MigrateUndo { target: i64 },
@@ -80,106 +83,6 @@ impl FromRef<AppState> for Key {
         state.key.clone()
     }
 }
-
-/*
-async fn ws_demo() -> Html<&'static str> {
-    Html(include_str!("../frontend/ws-demo.html"))
-}
-
-async fn ws_demo_css() -> impl IntoResponse {
-    (
-        [(header::CONTENT_TYPE, "text/css")],
-        include_str!("../frontend/ws-demo.css"),
-    )
-}
-
-async fn ws_demo_js() -> impl IntoResponse {
-    (
-        [(header::CONTENT_TYPE, "text/javascript")],
-        include_str!("../frontend/ws-demo.js"),
-    )
-}
-
-async fn css() -> impl IntoResponse {
-    (
-        [
-            (header::CONTENT_TYPE, "text/css"),
-            (header::CACHE_CONTROL, "max-age=31536000"),
-        ],
-        include_str!("../frontend/ceresforge.css"),
-    )
-}
-
-async fn inter_normal() -> impl IntoResponse {
-    (
-        [
-            (header::CONTENT_TYPE, "font/woff2"),
-            (header::CACHE_CONTROL, "max-age=31536000"),
-        ],
-        include_bytes!("../frontend/inter-normal-4.1.woff2"),
-    )
-}
-
-async fn inter_italic() -> impl IntoResponse {
-    (
-        [
-            (header::CONTENT_TYPE, "font/woff2"),
-            (header::CACHE_CONTROL, "max-age=31536000"),
-        ],
-        include_bytes!("../frontend/inter-italic-4.1.woff2"),
-    )
-}
-
-async fn svg() -> impl IntoResponse {
-    (
-        [
-            (header::CONTENT_TYPE, "image/svg+xml"),
-            (header::CACHE_CONTROL, "max-age=31536000"),
-        ],
-        include_str!("../frontend/ceresforge.svg"),
-    )
-}
-
-
-fn plain_400() -> Response {
-    plain_fullscreen("400", "Bad Request.", StatusCode::BAD_REQUEST).into_response()
-}
-
-fn plain_401() -> Response {
-    plain_fullscreen("401", "Unauthorized.", StatusCode::UNAUTHORIZED).into_response()
-}
-
-#[allow(dead_code)]
-fn plain_403() -> Response {
-    plain_fullscreen("403", "Forbidden.", StatusCode::FORBIDDEN).into_response()
-}
-
-fn plain_404() -> Response {
-    plain_fullscreen("404", "Not Found.", StatusCode::NOT_FOUND).into_response()
-}
-
-fn plain_405() -> Response {
-    plain_fullscreen("405", "Method Not Allowed.", StatusCode::METHOD_NOT_ALLOWED).into_response()
-}
-
-fn plain_500() -> Response {
-    plain_fullscreen(
-        "500",
-        "Internal Server Error.",
-        StatusCode::INTERNAL_SERVER_ERROR,
-    )
-    .into_response()
-}
-
-async fn method_not_allowed_fallback() -> impl IntoResponse {
-    plain_405()
-}
-
-#[allow(dead_code)]
-async fn fallback() -> impl IntoResponse {
-    plain_404()
-}
-*/
 
 async fn method_not_allowed_fallback() -> impl IntoResponse {
     StatusCode::METHOD_NOT_ALLOWED
@@ -273,7 +176,6 @@ async fn app() -> Router {
         .route("/auth/saml/connect/{provider}", get(saml::connect))
         .route("/auth/saml/acs/{provider}", post(saml::acs))
         .route("/auth/saml/metadata/{provider}", get(saml::metadata))
-
         .route(
             "/.well-known/openid-configuration",
             get(crate::openid_configuration::handler),
@@ -378,6 +280,66 @@ async fn create_oauth2_client() {
 
     println!("Client ID: {}", client.id);
     println!("Client Secret: {}", client.secret);
+}
+
+async fn canvas_client() {
+    let client = crate::canvas::client::Client::from_env().unwrap();
+    //let courses = client.list_courses().await.unwrap();
+    let course_id: i64 = std::env::var("CANVAS_COURSE_ID").unwrap().parse().unwrap();
+    let students = client.list_students(course_id).await.unwrap();
+    let tas = client.list_tas(course_id).await.unwrap();
+    let teachers = client.list_teachers(course_id).await.unwrap();
+    println!("Got {} students", students.len());
+    println!("Got {} TAs", tas.len());
+    println!("Got {} teachers", teachers.len());
+    dbg!(teachers);
+}
+
+async fn forgejo_client() {
+    let client = crate::forgejo::client::Client::from_env().unwrap();
+
+    let org = std::env::var("FORGEJO_ORG").unwrap();
+    let teams = client.org_list_teams(&org).await.unwrap();
+
+    let tas_team = match teams.iter().find(|t| t.name == "TAs") {
+        Some(existing_team) => existing_team.clone(),
+        None => {
+            let option = crate::forgejo::client::CreateTeamOption {
+                name: "TAs".to_string(),
+                permission: Some(crate::forgejo::client::CreateTeamPermission::Write),
+                can_create_org_repo: Some(false),
+                includes_all_repositories: Some(true),
+                units: Some(vec![
+                    "repo.code".into(),
+                    "repo.issues".into(),
+                    "repo.pulls".into(),
+                ]),
+                ..Default::default()
+            };
+            client.create_team(&org, &option).await.unwrap()
+        }
+    };
+
+    let students_team = match teams.iter().find(|t| t.name == "Students") {
+        Some(existing_team) => existing_team.clone(),
+        None => {
+            let option = crate::forgejo::client::CreateTeamOption {
+                name: "Students".to_string(),
+                permission: Some(crate::forgejo::client::CreateTeamPermission::Read),
+                can_create_org_repo: Some(false),
+                includes_all_repositories: Some(false),
+                units: Some(vec![
+                    "repo.code".into(),
+                    "repo.issues".into(),
+                    "repo.pulls".into(),
+                ]),
+                ..Default::default()
+            };
+            client.create_team(&org, &option).await.unwrap()
+        }
+    };
+
+    dbg!(students_team);
 }
 
 async fn generate_cookie_key() {
@@ -550,6 +512,11 @@ async fn server() {
 fn main() {
     let args = Args::parse();
     match args.command {
+        Command::CanvasClient => tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(canvas_client()),
         Command::CreateAdmin => tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -560,6 +527,11 @@ fn main() {
             .build()
             .unwrap()
             .block_on(create_oauth2_client()),
+        Command::ForgejoClient => tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(forgejo_client()),
         Command::GenerateCookieKey => tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()

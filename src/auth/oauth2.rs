@@ -201,7 +201,11 @@ pub async fn authorize(
     let path_and_query = uri.path_and_query().unwrap().as_str();
     let user = match user {
         Some(user) => user,
-        None => return Ok(Redirect::temporary(&login_required_uri(path_and_query, &user)).into_response()),
+        None => {
+            return Ok(
+                Redirect::temporary(&login_required_uri(path_and_query, &user)).into_response(),
+            );
+        }
     };
     if params.response_type != "code" {
         return Ok(StatusCode::BAD_REQUEST.into_response());

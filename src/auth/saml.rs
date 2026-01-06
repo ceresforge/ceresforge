@@ -567,67 +567,15 @@ fn transform_attributes(attribute_statement: &AttributeStatement) -> Vec<SamlAtt
 }
 
 fn already_connected() -> Response {
-    let title = "Connect";
-    let description = "Already connected.";
     StatusCode::NOT_IMPLEMENTED.into_response()
-    /*
-    html! {
-        (base(&title, description, html! {
-            div .full-screen {
-                h1 {
-                    (title)
-                }
-                p .warning {
-                    (description)
-                }
-            }
-        }))
-    }
-    .into_response()
-    */
 }
 
 fn already_connected_to_different_name_id() -> Response {
-    let title = "Connect";
-    let description =
-        "Your account is already connected to a different identity from this provider.";
     StatusCode::NOT_IMPLEMENTED.into_response()
-    /*
-    html! {
-        (base(&title, description, html! {
-            div .full-screen {
-                h1 {
-                    (title)
-                }
-                p .warning {
-                    (description)
-                }
-            }
-        }))
-    }
-    .into_response()
-    */
 }
 
 fn not_connected() -> Response {
-    let title = "Login";
-    let description = "Not connected.";
     StatusCode::NOT_IMPLEMENTED.into_response()
-    /*
-    html! {
-        (base(&title, description, html! {
-            div .full-screen {
-                h1 {
-                    (title)
-                }
-                p .warning {
-                    (description)
-                }
-            }
-        }))
-    }
-    .into_response()
-    */
 }
 
 async fn verify_response(provider: &SamlProvider, xml: &str) -> Result<bool, std::io::Error> {
@@ -902,21 +850,18 @@ pub async fn acs(
         /* Login */
         None => match credential {
             Some(c) => {
-                let provider_id = c.user_id;
+                let user_id = c.user_id;
                 update_credentials(
                     pool,
-                    provider_id,
+                    user_id,
                     provider.id,
                     name_id.as_str(),
                     &attributes_json,
                 )
                 .await?;
-                create_cookie_frontend(pool, jar, provider_id, next).await
+                create_cookie_frontend(pool, jar, user_id, next).await
             }
             None => {
-                if !provider.allow_registration {
-                    return Ok(not_connected());
-                }
                 let mapped_attributes: HashMap<String, String> = match serde_json::from_value(
                     provider.mapped_attributes,
                 ) {
@@ -941,20 +886,50 @@ pub async fn acs(
                 };
                 let first_name = fields.get("first_name");
                 let last_name = fields.get("last_name");
-                let user_id = sqlx::query!(
-                    r#"
-                    INSERT INTO users (username, email, first_name, last_name)
-                    VALUES ($1, $2, $3, $4)
-                    RETURNING id
-                    "#,
+
+                let existing_users = sqlx::query!(
+                    r#"SELECT id FROM users WHERE username = $1 OR email = $2"#,
                     username,
-                    email,
-                    first_name,
-                    last_name
+                    email
                 )
-                .fetch_one(pool)
-                .await?
-                .id;
+                .fetch_all(pool)
+                .await?;
+
+                let user_id = match existing_users.as_slice() {
+                    // There's no existing user
+                    [] => {
+                        if !provider.allow_registration {
+                            return Ok(not_connected());
+                        }
+
+                        sqlx::query!(
+                            r#"
+                            INSERT INTO users (username, email, first_name, last_name)
+                            VALUES ($1, $2, $3, $4)
+                            RETURNING id
+                            "#,
+                            username,
+                            email,
+                            first_name,
+                            last_name
+                        )
+                        .fetch_one(pool)
+                        .await?
+                        .id
+                    }
+                    // There's exactly one match
+                    [record] => {
+                        if !provider.allow_auto_connection {
+                            return Ok(StatusCode::CONFLICT.into_response());
+                        }
+                        record.id
+                    }
+                    // There's a conflict, one user matches the username,
+                    // and the other matches the email
+                    _ => {
+                        return Ok(StatusCode::UNPROCESSABLE_ENTITY.into_response());
+                    }
+                };
 
                 sqlx::query!(
                     r#"
@@ -1158,12 +1133,4 @@ pub async fn metadata(
         quick_xml::se::to_string(&entity_descriptor)?,
     )
         .into_response())
-}
-
-pub fn routes() -> Router<AppState> {
-    Router::new()
-        .route("/login/{provider}", get(login))
-        .route("/connect/{provider}", get(connect))
-        .route("/acs/{provider}", post(acs))
-        .route("/metadata/{provider}", get(metadata))
 }
