@@ -283,16 +283,78 @@ async fn create_oauth2_client() {
 }
 
 async fn canvas_client() {
+    let pool = PgPoolOptions::new()
+        .acquire_timeout(Duration::from_secs(1))
+        .max_connections(1)
+        .connect(&std::env::var("DATABASE_URL").unwrap())
+        .await
+        .unwrap();
+
     let client = crate::canvas::client::Client::from_env().unwrap();
-    //let courses = client.list_courses().await.unwrap();
     let course_id: i64 = std::env::var("CANVAS_COURSE_ID").unwrap().parse().unwrap();
+
+    /*/
     let students = client.list_students(course_id).await.unwrap();
-    let tas = client.list_tas(course_id).await.unwrap();
-    let teachers = client.list_teachers(course_id).await.unwrap();
     println!("Got {} students", students.len());
+    for student in &students {
+        let username = &student.sis_user_id;
+        if let Some(email) = &student.email {
+            let result = sqlx::query!(
+                r#"
+                SELECT id FROM users WHERE username = $1
+                "#,
+                username
+            ).fetch_optional(&pool).await.unwrap();
+            if result.is_none() {
+                sqlx::query!(
+                    r#"
+                    INSERT INTO users (username, email) VALUES ($1, $2)
+                    "#,
+                    username,
+                    email
+                )
+                .execute(&pool)
+                .await
+                .unwrap();
+            }
+        } else {
+            println!("Student: {username} missing email");
+        }
+    }
+    */
+
+    let tas = client.list_tas(course_id).await.unwrap();
     println!("Got {} TAs", tas.len());
+    for ta in &tas {
+        let username = &ta.sis_user_id;
+        if let Some(email) = &ta.email {
+            let result = sqlx::query!(
+                r#"
+                SELECT id FROM users WHERE username = $1
+                "#,
+                username
+            ).fetch_optional(&pool).await.unwrap();
+            if result.is_none() {
+                sqlx::query!(
+                    r#"
+                    INSERT INTO users (username, email) VALUES ($1, $2)
+                    "#,
+                    username,
+                    email
+                )
+                .execute(&pool)
+                .await
+                .unwrap();
+            }
+        } else {
+            println!("TA: {username} missing email");
+        }
+    }
+
+    /*
+    let teachers = client.list_teachers(course_id).await.unwrap();
     println!("Got {} teachers", teachers.len());
-    dbg!(teachers);
+    */
 }
 
 async fn forgejo_client() {
