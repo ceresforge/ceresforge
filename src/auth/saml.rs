@@ -922,6 +922,20 @@ pub async fn acs(
                         if !provider.allow_auto_connection {
                             return Ok(StatusCode::CONFLICT.into_response());
                         }
+                        sqlx::query!(
+                            r#"
+                            UPDATE users 
+                            SET username = $1, email = $2, first_name = $3, last_name = $4
+                            WHERE id = $5
+                            "#,
+                            username,
+                            email,
+                            first_name,
+                            last_name,
+                            record.id
+                        )
+                        .execute(pool)
+                        .await?;
                         record.id
                     }
                     // There's a conflict, one user matches the username,
