@@ -409,8 +409,10 @@ async fn canvas_client() {
 
     let canvas_students = canvas_client.list_students(course_id).await.unwrap();
     let students = ensure_users(&pool, &canvas_students).await.unwrap();
+    println!("Got {} students", students.len());
     for (user_id, username, email) in &students {
-        let _forgejo_user = forgejo_get_user(
+        println!("Syncing {}", username);
+        let forgejo_user = forgejo_get_user(
             &forgejo_client,
             *user_id,
             username,
@@ -419,6 +421,7 @@ async fn canvas_client() {
         )
         .await
         .unwrap();
+        println!(" Created Forgejo user {}", forgejo_user.login);
 
         forgejo_client
             .add_team_member(students_team.id, username)
