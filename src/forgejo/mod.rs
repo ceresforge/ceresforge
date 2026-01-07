@@ -107,11 +107,11 @@ struct Commit {
 
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
-struct Repository {
-    name: String,
-    full_name: String,
-    owner: User,
-    description: Option<String>,
+pub struct Repository {
+    pub name: String,
+    pub full_name: String,
+    pub owner: User,
+    pub description: Option<String>,
 }
 
 #[allow(dead_code)]

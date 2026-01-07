@@ -356,14 +356,8 @@ async fn canvas_client() {
     let canvas_client = crate::canvas::client::Client::from_env().unwrap();
     let course_id: i64 = std::env::var("CANVAS_COURSE_ID").unwrap().parse().unwrap();
 
-    /*
-    let canvas_students = canvas_client.list_students(course_id).await.unwrap();
-    let students = ensure_users(&pool, &canvas_students).await.unwrap();
-    for (user_id, username, email) in &students {
-    }
-    */
-
     let org = std::env::var("FORGEJO_ORG").unwrap();
+    let org_owner = std::env::var("FORGEJO_ORG_OWNER").unwrap();
     let teams = forgejo_client.org_list_teams(&org).await.unwrap();
     let tas_team = match teams.iter().find(|t| t.name == "TAs") {
         Some(existing_team) => existing_team.clone(),
@@ -373,6 +367,20 @@ async fn canvas_client() {
                 permission: Some(crate::forgejo::client::CreateTeamPermission::Write),
                 can_create_org_repo: Some(false),
                 includes_all_repositories: Some(true),
+                units: Some(vec!["repo.code".into()]),
+                ..Default::default()
+            };
+            forgejo_client.create_team(&org, &option).await.unwrap()
+        }
+    };
+    let students_team = match teams.iter().find(|t| t.name == "Students") {
+        Some(existing_team) => existing_team.clone(),
+        None => {
+            let option = crate::forgejo::client::CreateTeamOption {
+                name: "Students".to_string(),
+                permission: Some(crate::forgejo::client::CreateTeamPermission::Read),
+                can_create_org_repo: Some(false),
+                includes_all_repositories: Some(false),
                 units: Some(vec!["repo.code".into()]),
                 ..Default::default()
             };
@@ -399,6 +407,46 @@ async fn canvas_client() {
             .unwrap();
     }
 
+    let canvas_students = canvas_client.list_students(course_id).await.unwrap();
+    let students = ensure_users(&pool, &canvas_students).await.unwrap();
+    for (user_id, username, email) in &students {
+        let _forgejo_user = forgejo_get_user(
+            &forgejo_client,
+            *user_id,
+            username,
+            email,
+            forgejo_source_id,
+        )
+        .await
+        .unwrap();
+
+        forgejo_client
+            .add_team_member(students_team.id, username)
+            .await
+            .unwrap();
+
+        let _repository = match forgejo_client.get_repository(&org, username).await {
+            Ok(repository) => repository,
+            Err(_) => {
+                let option = crate::forgejo::client::CreateForkOption {
+                    name: Some(username.to_string()),
+                    organization: Some(org.clone()),
+                };
+                forgejo_client
+                    .create_fork(&org, "starter-code", &option, Some(&org_owner))
+                    .await
+                    .unwrap()
+            }
+        };
+        {
+            let option = crate::forgejo::client::AddCollaboratorOption {
+                permission: Some(crate::forgejo::client::AddCollaboratorPermission::Write),
+                ..Default::default()
+            };
+            forgejo_client.add_collaborator(&org, username, username, &option, None).await.unwrap();
+        }
+    }
+
     // let canvas_teachers = canvas_client.list_teachers(course_id).await.unwrap();
 }
 
@@ -412,6 +460,8 @@ async fn forgejo_client() {
     */
 
     let org = std::env::var("FORGEJO_ORG").unwrap();
+    let org_owner = std::env::var("FORGEJO_ORG_OWNER").unwrap();
+
     let teams = client.org_list_teams(&org).await.unwrap();
 
     let tas_team = match teams.iter().find(|t| t.name == "TAs") {

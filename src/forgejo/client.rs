@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::forgejo::{Organization, Permission, Team, User, Visibility};
+use crate::forgejo::{Organization, Permission, Repository, Team, User, Visibility};
 use reqwest::header::{ACCEPT, AUTHORIZATION, HeaderMap, HeaderValue};
 use serde::Serialize;
 
@@ -16,6 +16,31 @@ pub enum CreateTeamPermission {
     Read,
     Write,
     Admin,
+}
+
+#[derive(Debug, Default, Serialize)]
+pub struct CreateForkOption {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub organization: Option<String>,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Serialize, Clone, Copy)]
+#[serde(rename_all = "lowercase")]
+pub enum AddCollaboratorPermission {
+    Read,
+    Write,
+    Admin,
+}
+
+#[derive(Debug, Default, Serialize)]
+pub struct AddCollaboratorOption {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permission: Option<AddCollaboratorPermission>,
 }
 
 #[derive(Debug, Default, Serialize)]
@@ -187,6 +212,70 @@ impl Client {
     pub async fn add_team_member(&self, id: i64, username: &str) -> Result<(), reqwest::Error> {
         let url = format!("{}/teams/{id}/members/{username}", self.base_url);
         let res = self.client.put(url).send().await?;
+        if !res.status().is_success() {
+            let body = res.text().await?;
+            println!("{body}");
+            panic!();
+        }
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub async fn get_repository(
+        &self,
+        owner: &str,
+        repo: &str,
+    ) -> Result<Repository, reqwest::Error> {
+        let url = format!("{}/repos/{owner}/{repo}", self.base_url);
+        let repository = self
+            .client
+            .get(url)
+            .send()
+            .await?
+            .error_for_status()?
+            .json::<Repository>()
+            .await?;
+        Ok(repository)
+    }
+
+    #[allow(dead_code)]
+    pub async fn create_fork(
+        &self,
+        owner: &str,
+        repo: &str,
+        option: &CreateForkOption,
+        sudo: Option<&str>,
+    ) -> Result<Repository, reqwest::Error> {
+        let url = format!("{}/repos/{owner}/{repo}/forks", self.base_url);
+        let mut request = self.client.post(url).json(option);
+        if let Some(username) = sudo {
+            request = request.header("Sudo", username);
+        }
+        let res = request.send().await?;
+        if !res.status().is_success() {
+            let body = res.text().await?;
+            println!("{body}");
+            panic!();
+        }
+        let repository = res.json::<Repository>().await?;
+        Ok(repository)
+    }
+
+    #[allow(dead_code)]
+    pub async fn add_collaborator(
+        &self,
+        owner: &str,
+        repo: &str,
+        collaborator: &str,
+        option: &AddCollaboratorOption,
+        sudo: Option<&str>,
+    ) -> Result<(), reqwest::Error> {
+        let url = format!("{}/repos/{owner}/{repo}/collaborators/{collaborator}", self.base_url);
+        let mut request = self.client.put(url).json(option);
+        if let Some(username) = sudo {
+            request = request.header("Sudo", username);
+        }
+        let res = request.send().await?;
         if !res.status().is_success() {
             let body = res.text().await?;
             println!("{body}");
