@@ -360,6 +360,8 @@ async fn canvas_client() {
 async fn forgejo_client() {
     let client = crate::forgejo::client::Client::from_env().unwrap();
 
+    let users = client.list_all_users().await.unwrap();
+
     let org = std::env::var("FORGEJO_ORG").unwrap();
     let teams = client.org_list_teams(&org).await.unwrap();
 
@@ -401,7 +403,6 @@ async fn forgejo_client() {
         }
     };
 
-    dbg!(students_team);
 }
 
 async fn generate_cookie_key() {

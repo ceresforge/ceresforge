@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::forgejo::{Organization, Permission, Team};
+use crate::forgejo::{Organization, Permission, Team, User};
 use reqwest::header::{ACCEPT, AUTHORIZATION, HeaderMap, HeaderValue};
 use serde::Serialize;
 
@@ -55,6 +55,20 @@ impl Client {
         let base_url = std::env::var("FORGEJO_BASE_URL")?;
         let token = std::env::var("FORGEJO_TOKEN")?;
         Ok(Self::new(&base_url, &token))
+    }
+
+    #[allow(dead_code)]
+    pub async fn list_all_users(&self) -> Result<Vec<User>, reqwest::Error> {
+        let url = format!("{}/admin/users", self.base_url);
+        let users = self
+            .client
+            .get(url)
+            .send()
+            .await?
+            .error_for_status()?
+            .json::<Vec<User>>()
+            .await?;
+        Ok(users)
     }
 
     #[allow(dead_code)]

@@ -17,9 +17,32 @@ use std::collections::HashMap;
 
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
-struct User {
-    id: i64,
-    username: String,
+pub struct User {
+    pub active: bool,
+    pub avatar_url: String,
+    pub created: String,
+    pub description: String,
+    pub email: String,
+    pub followers_count: i64,
+    pub following_count: i64,
+    pub full_name: String,
+    pub html_url: String,
+    pub id: i64,
+    pub is_admin: bool,
+    pub language: String,
+    pub last_login: String,
+    pub location: String,
+    pub login: String,
+    pub login_name: String,
+    pub prohibit_login: bool,
+    pub pronouns: String,
+    pub restricted: bool,
+    pub source_id: i64,
+    pub starred_repos_count: i64,
+    pub visibility: String,
+    #[deprecated(note = "Please use the `login` field instead")]
+    pub username: String,
+    pub website: String,
 }
 
 #[allow(dead_code)]
