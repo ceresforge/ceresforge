@@ -428,6 +428,7 @@ async fn canvas_client() {
             .await
             .unwrap();
 
+        println!("  Check repository {org}/{username}");
         let _repository = match forgejo_client.get_repository(&org, username).await {
             Ok(repository) => repository,
             Err(_) => {
@@ -435,6 +436,7 @@ async fn canvas_client() {
                     name: Some(username.to_string()),
                     organization: Some(org.clone()),
                 };
+                dbg!(&option);
                 forgejo_client
                     .create_fork(&org, "starter-code", &option, Some(&org_owner))
                     .await
