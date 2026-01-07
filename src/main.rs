@@ -282,6 +282,66 @@ async fn create_oauth2_client() {
     println!("Client Secret: {}", client.secret);
 }
 
+async fn ensure_users(
+    pool: &PgPool,
+    canvas_users: &[crate::canvas::User],
+) -> Result<Vec<(i64, String, String)>, sqlx::Error> {
+    let mut users = Vec::new();
+    for user in canvas_users {
+        let username = &user.sis_user_id;
+        if let Some(email) = &user.email {
+            let user_id = match sqlx::query!(
+                r#"
+                SELECT id FROM users WHERE username = $1
+                "#,
+                username
+            )
+            .fetch_optional(pool)
+            .await?
+            {
+                Some(record) => record.id,
+                None => {
+                    sqlx::query!(
+                        r#"
+                        INSERT INTO users (username, email) VALUES ($1, $2) RETURNING id
+                        "#,
+                        username,
+                        email
+                    )
+                    .fetch_one(pool)
+                    .await?
+                    .id
+                }
+            };
+            users.push((user_id, username.clone(), email.clone()));
+        } else {
+            println!("Warning: {username} missing email");
+        }
+    }
+    Ok(users)
+}
+
+async fn forgejo_get_user(
+    forgejo_client: &crate::forgejo::client::Client,
+    user_id: i64,
+    username: &str,
+    email: &str,
+    source_id: i64,
+) -> Result<crate::forgejo::User, reqwest::Error> {
+    let option = crate::forgejo::client::CreateUserOption {
+        username: username.to_string(),
+        email: email.to_string(),
+        source_id: Some(source_id),
+        login_name: Some(user_id.to_string()),
+        visibility: Some(crate::forgejo::Visibility::Private),
+        ..Default::default()
+    };
+    match forgejo_client.create_user(&option).await {
+        Ok(user) => Ok(user),
+        Err(_) => forgejo_client.get_user(username).await,
+    }
+}
+
 async fn canvas_client() {
     let pool = PgPoolOptions::new()
         .acquire_timeout(Duration::from_secs(1))
@@ -290,77 +350,66 @@ async fn canvas_client() {
         .await
         .unwrap();
 
-    let client = crate::canvas::client::Client::from_env().unwrap();
+    let forgejo_client = crate::forgejo::client::Client::from_env().unwrap();
+    let forgejo_source_id = std::env::var("FORGEJO_SOURCE_ID").unwrap().parse().unwrap();
+
+    let canvas_client = crate::canvas::client::Client::from_env().unwrap();
     let course_id: i64 = std::env::var("CANVAS_COURSE_ID").unwrap().parse().unwrap();
 
-    /*/
-    let students = client.list_students(course_id).await.unwrap();
-    println!("Got {} students", students.len());
-    for student in &students {
-        let username = &student.sis_user_id;
-        if let Some(email) = &student.email {
-            let result = sqlx::query!(
-                r#"
-                SELECT id FROM users WHERE username = $1
-                "#,
-                username
-            ).fetch_optional(&pool).await.unwrap();
-            if result.is_none() {
-                sqlx::query!(
-                    r#"
-                    INSERT INTO users (username, email) VALUES ($1, $2)
-                    "#,
-                    username,
-                    email
-                )
-                .execute(&pool)
-                .await
-                .unwrap();
-            }
-        } else {
-            println!("Student: {username} missing email");
-        }
-    }
-    */
-
-    let tas = client.list_tas(course_id).await.unwrap();
-    println!("Got {} TAs", tas.len());
-    for ta in &tas {
-        let username = &ta.sis_user_id;
-        if let Some(email) = &ta.email {
-            let result = sqlx::query!(
-                r#"
-                SELECT id FROM users WHERE username = $1
-                "#,
-                username
-            ).fetch_optional(&pool).await.unwrap();
-            if result.is_none() {
-                sqlx::query!(
-                    r#"
-                    INSERT INTO users (username, email) VALUES ($1, $2)
-                    "#,
-                    username,
-                    email
-                )
-                .execute(&pool)
-                .await
-                .unwrap();
-            }
-        } else {
-            println!("TA: {username} missing email");
-        }
-    }
-
     /*
-    let teachers = client.list_teachers(course_id).await.unwrap();
-    println!("Got {} teachers", teachers.len());
+    let canvas_students = canvas_client.list_students(course_id).await.unwrap();
+    let students = ensure_users(&pool, &canvas_students).await.unwrap();
+    for (user_id, username, email) in &students {
+    }
     */
+
+    let org = std::env::var("FORGEJO_ORG").unwrap();
+    let teams = forgejo_client.org_list_teams(&org).await.unwrap();
+    let tas_team = match teams.iter().find(|t| t.name == "TAs") {
+        Some(existing_team) => existing_team.clone(),
+        None => {
+            let option = crate::forgejo::client::CreateTeamOption {
+                name: "TAs".to_string(),
+                permission: Some(crate::forgejo::client::CreateTeamPermission::Write),
+                can_create_org_repo: Some(false),
+                includes_all_repositories: Some(true),
+                units: Some(vec!["repo.code".into()]),
+                ..Default::default()
+            };
+            forgejo_client.create_team(&org, &option).await.unwrap()
+        }
+    };
+
+    let canvas_tas = canvas_client.list_tas(course_id).await.unwrap();
+    let tas = ensure_users(&pool, &canvas_tas).await.unwrap();
+    for (user_id, username, email) in &tas {
+        let _forgejo_user = forgejo_get_user(
+            &forgejo_client,
+            *user_id,
+            username,
+            email,
+            forgejo_source_id,
+        )
+        .await
+        .unwrap();
+
+        forgejo_client
+            .add_team_member(tas_team.id, username)
+            .await
+            .unwrap();
+    }
+
+    // let canvas_teachers = canvas_client.list_teachers(course_id).await.unwrap();
 }
 
 async fn forgejo_client() {
     let client = crate::forgejo::client::Client::from_env().unwrap();
+    // let source_id = std::env::var("FORGEJO_SOURCE_ID").unwrap().parse().unwrap();
 
+    /*
     let users = client.list_all_users().await.unwrap();
+    dbg!(users);
+    */
 
     let org = std::env::var("FORGEJO_ORG").unwrap();
     let teams = client.org_list_teams(&org).await.unwrap();
@@ -373,11 +422,7 @@ async fn forgejo_client() {
                 permission: Some(crate::forgejo::client::CreateTeamPermission::Write),
                 can_create_org_repo: Some(false),
                 includes_all_repositories: Some(true),
-                units: Some(vec![
-                    "repo.code".into(),
-                    "repo.issues".into(),
-                    "repo.pulls".into(),
-                ]),
+                units: Some(vec!["repo.code".into()]),
                 ..Default::default()
             };
             client.create_team(&org, &option).await.unwrap()
@@ -392,17 +437,12 @@ async fn forgejo_client() {
                 permission: Some(crate::forgejo::client::CreateTeamPermission::Read),
                 can_create_org_repo: Some(false),
                 includes_all_repositories: Some(false),
-                units: Some(vec![
-                    "repo.code".into(),
-                    "repo.issues".into(),
-                    "repo.pulls".into(),
-                ]),
+                units: Some(vec!["repo.code".into()]),
                 ..Default::default()
             };
             client.create_team(&org, &option).await.unwrap()
         }
     };
-
 }
 
 async fn generate_cookie_key() {

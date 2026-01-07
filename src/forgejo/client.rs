@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::forgejo::{Organization, Permission, Team, User};
+use crate::forgejo::{Organization, Permission, Team, User, Visibility};
 use reqwest::header::{ACCEPT, AUTHORIZATION, HeaderMap, HeaderValue};
 use serde::Serialize;
 
@@ -33,6 +33,30 @@ pub struct CreateTeamOption {
     pub units: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub units_map: Option<HashMap<String, Permission>>,
+}
+
+#[derive(Debug, Default, Serialize)]
+pub struct CreateUserOption {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+    pub email: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub full_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub login_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub must_change_password: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub password: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub restricted: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub send_notify: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_id: Option<i64>,
+    pub username: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub visibility: Option<Visibility>,
 }
 
 impl Client {
@@ -69,6 +93,35 @@ impl Client {
             .json::<Vec<User>>()
             .await?;
         Ok(users)
+    }
+
+    #[allow(dead_code)]
+    pub async fn create_user(&self, option: &CreateUserOption) -> Result<User, reqwest::Error> {
+        let url = format!("{}/admin/users", self.base_url);
+        let user = self
+            .client
+            .post(url)
+            .json(option)
+            .send()
+            .await?
+            .error_for_status()?
+            .json::<User>()
+            .await?;
+        Ok(user)
+    }
+
+    #[allow(dead_code)]
+    pub async fn get_user(&self, username: &str) -> Result<User, reqwest::Error> {
+        let url = format!("{}/users/{username}", self.base_url);
+        let user = self
+            .client
+            .get(url)
+            .send()
+            .await?
+            .error_for_status()?
+            .json::<User>()
+            .await?;
+        Ok(user)
     }
 
     #[allow(dead_code)]
@@ -120,7 +173,6 @@ impl Client {
         option: &CreateTeamOption,
     ) -> Result<Team, reqwest::Error> {
         let url = format!("{}/orgs/{org}/teams", self.base_url);
-
         let res = self.client.post(url).json(option).send().await?;
         if !res.status().is_success() {
             let body = res.text().await?;
@@ -129,5 +181,17 @@ impl Client {
         }
         let team = res.json::<Team>().await?;
         Ok(team)
+    }
+
+    #[allow(dead_code)]
+    pub async fn add_team_member(&self, id: i64, username: &str) -> Result<(), reqwest::Error> {
+        let url = format!("{}/teams/{id}/members/{username}", self.base_url);
+        let res = self.client.put(url).send().await?;
+        if !res.status().is_success() {
+            let body = res.text().await?;
+            println!("{body}");
+            panic!();
+        }
+        Ok(())
     }
 }

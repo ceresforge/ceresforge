@@ -15,6 +15,14 @@ use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::collections::HashMap;
 
+#[derive(Debug, Deserialize, Serialize, PartialEq, PartialOrd, Clone, Copy)]
+#[serde(rename_all = "lowercase")]
+pub enum Visibility {
+    Public,
+    Limited,
+    Private,
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct User {
@@ -39,7 +47,7 @@ pub struct User {
     pub restricted: bool,
     pub source_id: i64,
     pub starred_repos_count: i64,
-    pub visibility: String,
+    pub visibility: Visibility,
     #[deprecated(note = "Please use the `login` field instead")]
     pub username: String,
     pub website: String,

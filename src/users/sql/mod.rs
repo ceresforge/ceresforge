@@ -47,7 +47,7 @@ pub async fn users(executor: impl Executor<'_, Database = Postgres>) -> Result<V
     let result = sqlx::query_as!(
         User,
         r#"
-        SELECT * FROM users ORDER BY created_at LIMIT 100
+        SELECT * FROM users ORDER BY created_at LIMIT 1000
         "#,
     )
     .fetch_all(executor)
