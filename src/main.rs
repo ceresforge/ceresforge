@@ -423,7 +423,7 @@ async fn canvas_client() {
         )
         .await
         .unwrap();
-        println!(" Created Forgejo user {}", forgejo_user.login);
+        println!("  Created Forgejo User {}", forgejo_user.login);
 
         forgejo_client
             .add_team_member(students_team.id, username)
@@ -463,7 +463,7 @@ async fn canvas_client() {
                 has_issues: Some(false),
                 has_packages: Some(false),
                 has_projects: Some(false),
-                has_pull_requests: Some(false),
+                has_pull_requests: Some(true),
                 has_releases: Some(false),
                 has_wiki: Some(false),
             };
