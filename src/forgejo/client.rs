@@ -26,6 +26,32 @@ pub struct CreateForkOption {
     pub organization: Option<String>,
 }
 
+#[derive(Debug, Default, Serialize)]
+pub struct GenerateRepoOption {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_branch: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub git_content: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub git_hooks: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub labels: Option<bool>,
+    pub name: String,
+    pub owner: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub protected_branch: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub topics: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub webhooks: Option<bool>,
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Serialize, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
@@ -283,4 +309,28 @@ impl Client {
         }
         Ok(())
     }
+
+    #[allow(dead_code)]
+    pub async fn generate_repo(
+        &self,
+        template_owner: &str,
+        template_repo: &str,
+        option: &GenerateRepoOption,
+        sudo: Option<&str>,
+    ) -> Result<Repository, reqwest::Error> {
+        let url = format!("{}/repos/{template_owner}/{template_repo}/generate", self.base_url);
+        let mut request = self.client.post(url).json(option);
+        if let Some(username) = sudo {
+            request = request.header("Sudo", username);
+        }
+        let res = request.send().await?;
+        if !res.status().is_success() {
+            let body = res.text().await?;
+            println!("{body}");
+            panic!();
+        }
+        let repository = res.json::<Repository>().await?;
+        Ok(repository)
+    }
+
 }

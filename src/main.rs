@@ -429,20 +429,23 @@ async fn canvas_client() {
             .unwrap();
 
         println!("  Check repository {org}/{username}");
-        let _repository = match forgejo_client.get_repository(&org, username).await {
+        let repository = match forgejo_client.get_repository(&org, username).await {
             Ok(repository) => repository,
             Err(_) => {
-                let option = crate::forgejo::client::CreateForkOption {
-                    name: Some(username.to_string()),
-                    organization: Some(org.clone()),
+                let option = crate::forgejo::client::GenerateRepoOption {
+                    name: username.to_string(),
+                    owner: org.clone(),
+                    git_content: Some(true),
+                    private: Some(true),
+                    ..Default::default()
                 };
-                dbg!(&option);
                 forgejo_client
-                    .create_fork(&org, "starter-code", &option, Some(&org_owner))
+                    .generate_repo(&org, "starter-code", &option, Some(&org_owner))
                     .await
                     .unwrap()
             }
         };
+        println!(" Create repository {}", repository.full_name);
         {
             let option = crate::forgejo::client::AddCollaboratorOption {
                 permission: Some(crate::forgejo::client::AddCollaboratorPermission::Write),
