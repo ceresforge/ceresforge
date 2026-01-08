@@ -52,6 +52,60 @@ pub struct GenerateRepoOption {
     pub webhooks: Option<bool>,
 }
 
+#[derive(Debug, Default, Serialize)]
+pub struct EditRepoOption {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_actions: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_issues: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_packages: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_projects: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_pull_requests: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_releases: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_wiki: Option<bool>,
+}
+
+#[derive(Debug, Default, Serialize)]
+pub struct MigrateRepoOptions {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_password: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_username: Option<String>,
+    pub clone_addr: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub issues: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub labels: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lfs: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lfs_endpoint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub milestones: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mirror: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mirror_interval: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pull_requests: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub releases: Option<bool>,
+    pub repo_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repo_owner: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub service: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wiki: Option<bool>,
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Serialize, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
@@ -265,6 +319,13 @@ impl Client {
     }
 
     #[allow(dead_code)]
+    pub async fn delete_repo(&self, owner: &str, repo: &str) -> Result<(), reqwest::Error> {
+        let url = format!("{}/repos/{owner}/{repo}", self.base_url);
+        self.client.delete(url).send().await?.error_for_status()?;
+        Ok(())
+    }
+
+    #[allow(dead_code)]
     pub async fn create_fork(
         &self,
         owner: &str,
@@ -296,7 +357,10 @@ impl Client {
         option: &AddCollaboratorOption,
         sudo: Option<&str>,
     ) -> Result<(), reqwest::Error> {
-        let url = format!("{}/repos/{owner}/{repo}/collaborators/{collaborator}", self.base_url);
+        let url = format!(
+            "{}/repos/{owner}/{repo}/collaborators/{collaborator}",
+            self.base_url
+        );
         let mut request = self.client.put(url).json(option);
         if let Some(username) = sudo {
             request = request.header("Sudo", username);
@@ -318,7 +382,10 @@ impl Client {
         option: &GenerateRepoOption,
         sudo: Option<&str>,
     ) -> Result<Repository, reqwest::Error> {
-        let url = format!("{}/repos/{template_owner}/{template_repo}/generate", self.base_url);
+        let url = format!(
+            "{}/repos/{template_owner}/{template_repo}/generate",
+            self.base_url
+        );
         let mut request = self.client.post(url).json(option);
         if let Some(username) = sudo {
             request = request.header("Sudo", username);
@@ -333,4 +400,69 @@ impl Client {
         Ok(repository)
     }
 
+    #[allow(dead_code)]
+    pub async fn edit_repo(
+        &self,
+        owner: &str,
+        repo: &str,
+        option: &EditRepoOption,
+        sudo: Option<&str>,
+    ) -> Result<Repository, reqwest::Error> {
+        let url = format!("{}/repos/{owner}/{repo}", self.base_url);
+        let mut request = self.client.patch(url).json(option);
+        if let Some(username) = sudo {
+            request = request.header("Sudo", username);
+        }
+        let res = request.send().await?;
+        if !res.status().is_success() {
+            let body = res.text().await?;
+            println!("{body}");
+            panic!();
+        }
+        let repository = res.json::<Repository>().await?;
+        Ok(repository)
+    }
+
+    #[allow(dead_code)]
+    pub async fn migrate_repo(
+        &self,
+        options: &MigrateRepoOptions,
+        sudo: Option<&str>,
+    ) -> Result<Repository, reqwest::Error> {
+        let url = format!("{}/repos/migrate", self.base_url);
+        let mut request = self.client.post(url).json(options);
+        if let Some(username) = sudo {
+            request = request.header("Sudo", username);
+        }
+        let res = request.send().await?;
+        if !res.status().is_success() {
+            let body = res.text().await?;
+            println!("{body}");
+            panic!();
+        }
+        let repository = res.json::<Repository>().await?;
+        Ok(repository)
+    }
+
+    #[allow(dead_code)]
+    pub async fn convert_repo(
+        &self,
+        owner: &str,
+        repo: &str,
+        sudo: Option<&str>,
+    ) -> Result<Repository, reqwest::Error> {
+        let url = format!("{}/repos/{owner}/{repo}/convert", self.base_url);
+        let mut request = self.client.post(url);
+        if let Some(username) = sudo {
+            request = request.header("Sudo", username);
+        }
+        let res = request.send().await?;
+        if !res.status().is_success() {
+            let body = res.text().await?;
+            println!("{body}");
+            panic!();
+        }
+        let repository = res.json::<Repository>().await?;
+        Ok(repository)
+    }
 }

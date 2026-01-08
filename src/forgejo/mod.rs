@@ -112,6 +112,7 @@ pub struct Repository {
     pub full_name: String,
     pub owner: User,
     pub description: Option<String>,
+    pub fork: bool,
 }
 
 #[allow(dead_code)]

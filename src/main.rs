@@ -352,6 +352,8 @@ async fn canvas_client() {
 
     let forgejo_client = crate::forgejo::client::Client::from_env().unwrap();
     let forgejo_source_id = std::env::var("FORGEJO_SOURCE_ID").unwrap().parse().unwrap();
+    let forgejo_username = std::env::var("FORGEJO_USERNAME").unwrap();
+    let forgejo_password = std::env::var("FORGEJO_PASSWORD").unwrap();
 
     let canvas_client = crate::canvas::client::Client::from_env().unwrap();
     let course_id: i64 = std::env::var("CANVAS_COURSE_ID").unwrap().parse().unwrap();
@@ -428,30 +430,58 @@ async fn canvas_client() {
             .await
             .unwrap();
 
-        println!("  Check repository {org}/{username}");
-        let repository = match forgejo_client.get_repository(&org, username).await {
+        let _repository = match forgejo_client.get_repository(&org, username).await {
             Ok(repository) => repository,
             Err(_) => {
-                let option = crate::forgejo::client::GenerateRepoOption {
-                    name: username.to_string(),
-                    owner: org.clone(),
-                    git_content: Some(true),
+                let options = crate::forgejo::client::MigrateRepoOptions {
+                    auth_username: Some(forgejo_username.clone()),
+                    auth_password: Some(forgejo_password.clone()),
+                    clone_addr: format!("https://code.ece.gg/{org}/starter-code.git"),
+                    repo_name: username.to_string(),
+                    repo_owner: Some(org.clone()),
                     private: Some(true),
+                    issues: Some(false),
+                    labels: Some(false),
+                    lfs: Some(false),
+                    mirror: Some(false),
+                    pull_requests: Some(false),
+                    releases: Some(false),
+                    wiki: Some(false),
                     ..Default::default()
                 };
                 forgejo_client
-                    .generate_repo(&org, "starter-code", &option, Some(&org_owner))
+                    .migrate_repo(&options, Some(&org_owner))
                     .await
                     .unwrap()
             }
         };
-        println!(" Create repository {}", repository.full_name);
+        println!("  Created repository {org}/{username}");
+
+        {
+            let option = crate::forgejo::client::EditRepoOption {
+                has_actions: Some(false),
+                has_issues: Some(false),
+                has_packages: Some(false),
+                has_projects: Some(false),
+                has_pull_requests: Some(false),
+                has_releases: Some(false),
+                has_wiki: Some(false),
+            };
+            forgejo_client
+                .edit_repo(&org, username, &option, Some(&org_owner))
+                .await
+                .unwrap();
+        }
+
         {
             let option = crate::forgejo::client::AddCollaboratorOption {
                 permission: Some(crate::forgejo::client::AddCollaboratorPermission::Write),
                 ..Default::default()
             };
-            forgejo_client.add_collaborator(&org, username, username, &option, None).await.unwrap();
+            forgejo_client
+                .add_collaborator(&org, username, username, &option, None)
+                .await
+                .unwrap();
         }
     }
 
