@@ -427,40 +427,36 @@ async fn canvas_client() {
                     wiki: Some(false),
                     ..Default::default()
                 };
-                forgejo_client
+                let repository = forgejo_client
                     .migrate_repo(&options, Some(&org_owner))
                     .await
-                    .unwrap()
+                    .unwrap();
+                let option = crate::forgejo::client::EditRepoOption {
+                    has_actions: Some(false),
+                    has_issues: Some(false),
+                    has_packages: Some(false),
+                    has_projects: Some(false),
+                    has_pull_requests: Some(true),
+                    has_releases: Some(false),
+                    has_wiki: Some(false),
+                };
+                forgejo_client
+                    .edit_repo(&org, username, &option, Some(&org_owner))
+                    .await
+                    .unwrap();
+                let option = crate::forgejo::client::AddCollaboratorOption {
+                    permission: Some(crate::forgejo::client::AddCollaboratorPermission::Write),
+                    ..Default::default()
+                };
+                forgejo_client
+                    .add_collaborator(&org, username, username, &option, None)
+                    .await
+                    .unwrap();
+
+                println!("  Created repository {org}/{username}");
+                repository
             }
         };
-        println!("  Created repository {org}/{username}");
-
-        {
-            let option = crate::forgejo::client::EditRepoOption {
-                has_actions: Some(false),
-                has_issues: Some(false),
-                has_packages: Some(false),
-                has_projects: Some(false),
-                has_pull_requests: Some(true),
-                has_releases: Some(false),
-                has_wiki: Some(false),
-            };
-            forgejo_client
-                .edit_repo(&org, username, &option, Some(&org_owner))
-                .await
-                .unwrap();
-        }
-
-        {
-            let option = crate::forgejo::client::AddCollaboratorOption {
-                permission: Some(crate::forgejo::client::AddCollaboratorPermission::Write),
-                ..Default::default()
-            };
-            forgejo_client
-                .add_collaborator(&org, username, username, &option, None)
-                .await
-                .unwrap();
-        }
     }
 
     let canvas_students = canvas_client.list_students(course_id).await.unwrap();
@@ -503,40 +499,36 @@ async fn canvas_client() {
                     wiki: Some(false),
                     ..Default::default()
                 };
-                forgejo_client
+                let repository = forgejo_client
                     .migrate_repo(&options, Some(&org_owner))
                     .await
-                    .unwrap()
+                    .unwrap();
+                let option = crate::forgejo::client::EditRepoOption {
+                    has_actions: Some(false),
+                    has_issues: Some(false),
+                    has_packages: Some(false),
+                    has_projects: Some(false),
+                    has_pull_requests: Some(true),
+                    has_releases: Some(false),
+                    has_wiki: Some(false),
+                };
+                forgejo_client
+                    .edit_repo(&org, username, &option, Some(&org_owner))
+                    .await
+                    .unwrap();
+                let option = crate::forgejo::client::AddCollaboratorOption {
+                    permission: Some(crate::forgejo::client::AddCollaboratorPermission::Write),
+                    ..Default::default()
+                };
+                forgejo_client
+                    .add_collaborator(&org, username, username, &option, None)
+                    .await
+                    .unwrap();
+
+                println!("  Created repository {org}/{username}");
+                repository
             }
         };
-        println!("  Created repository {org}/{username}");
-
-        {
-            let option = crate::forgejo::client::EditRepoOption {
-                has_actions: Some(false),
-                has_issues: Some(false),
-                has_packages: Some(false),
-                has_projects: Some(false),
-                has_pull_requests: Some(true),
-                has_releases: Some(false),
-                has_wiki: Some(false),
-            };
-            forgejo_client
-                .edit_repo(&org, username, &option, Some(&org_owner))
-                .await
-                .unwrap();
-        }
-
-        {
-            let option = crate::forgejo::client::AddCollaboratorOption {
-                permission: Some(crate::forgejo::client::AddCollaboratorPermission::Write),
-                ..Default::default()
-            };
-            forgejo_client
-                .add_collaborator(&org, username, username, &option, None)
-                .await
-                .unwrap();
-        }
     }
 
     let canvas_teachers = canvas_client.list_teachers(course_id).await.unwrap();
@@ -564,40 +556,35 @@ async fn canvas_client() {
                     wiki: Some(false),
                     ..Default::default()
                 };
-                forgejo_client
+                let repository = forgejo_client
                     .migrate_repo(&options, Some(&org_owner))
                     .await
-                    .unwrap()
+                    .unwrap();
+                let option = crate::forgejo::client::EditRepoOption {
+                    has_actions: Some(false),
+                    has_issues: Some(false),
+                    has_packages: Some(false),
+                    has_projects: Some(false),
+                    has_pull_requests: Some(true),
+                    has_releases: Some(false),
+                    has_wiki: Some(false),
+                };
+                forgejo_client
+                    .edit_repo(&org, username, &option, Some(&org_owner))
+                    .await
+                    .unwrap();
+                let option = crate::forgejo::client::AddCollaboratorOption {
+                    permission: Some(crate::forgejo::client::AddCollaboratorPermission::Write),
+                    ..Default::default()
+                };
+                forgejo_client
+                    .add_collaborator(&org, username, username, &option, None)
+                    .await
+                    .unwrap();
+                println!("  Created repository {org}/{username}");
+                repository
             }
         };
-        println!("  Created repository {org}/{username}");
-
-        {
-            let option = crate::forgejo::client::EditRepoOption {
-                has_actions: Some(false),
-                has_issues: Some(false),
-                has_packages: Some(false),
-                has_projects: Some(false),
-                has_pull_requests: Some(true),
-                has_releases: Some(false),
-                has_wiki: Some(false),
-            };
-            forgejo_client
-                .edit_repo(&org, username, &option, Some(&org_owner))
-                .await
-                .unwrap();
-        }
-
-        {
-            let option = crate::forgejo::client::AddCollaboratorOption {
-                permission: Some(crate::forgejo::client::AddCollaboratorPermission::Write),
-                ..Default::default()
-            };
-            forgejo_client
-                .add_collaborator(&org, username, username, &option, None)
-                .await
-                .unwrap();
-        }
     }
 }
 
