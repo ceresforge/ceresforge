@@ -10,37 +10,37 @@ license = "MIT OR Apache-2.0"
 argon2 = "0.5.3"
 axum = { version = "0.8.8", features = ["ws"] }
 axum-extra = { version = "0.12.5", features = ["cookie-private", "typed-header"] }
-base64ct = "1.8.1"
-clap = { version = "4.5.53", features = ["derive"] }
+base64ct = "1.8.3"
+clap = { version = "4.6.0", features = ["derive"] }
 cookie = { version = "0.18.1", features = ["private"] }
-flate2 = "1.1.5"
-futures = "0.3.31"
-hmac = "0.12.1"
-hyper-util = "0.1.19"
-quick-xml = { version = "0.38.4", features = ["serialize", "serde-types"] }
-rand = "0.10.0-rc.5"
-reqwest = { version = "0.12.26", features = ["json", "stream"] }
+flate2 = "1.1.9"
+futures = "0.3.32"
+hmac = "0.13.0-rc.6"
+hyper-util = "0.1.20"
+quick-xml = { version = "0.39.2", features = ["serialize", "serde-types"] }
+rand = "0.10.0"
+reqwest = { version = "0.13.2", features = ["json", "stream"] }
 rpassword = "7.4.0"
-rsa = { version = "0.10.0-rc.10", features = ["sha2"] }
+rsa = { version = "0.10.0-rc.17", features = ["sha2"] }
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.148"
-sha2 = "0.10.9"
+serde_json = "1.0.149"
+sha2 = "0.11.0"
 sqlx = { version = "0.8.6", features = ["runtime-tokio", "postgres", "time", "uuid"] }
-thiserror = "2.0.17"
-time = { version = "0.3.44", features = ["serde", "formatting"] }
-tokio = { version = "1.48.0", features = ["macros", "process", "rt-multi-thread", "signal"] }
-tower = "0.5.2"
-tower-http = { version = "0.6.6", features = ["trace"] }
-tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
-url = "2.5.7"
+thiserror = "2.0.18"
+time = { version = "0.3.47", features = ["serde", "formatting"] }
+tokio = { version = "1.50.0", features = ["macros", "process", "rt-multi-thread", "signal"] }
+tower = "0.5.3"
+tower-http = { version = "0.6.8", features = ["trace"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+url = "2.5.8"
 urlencoding = "2.1.3"
-uuid = { version = "1.18.1", features = ["v4"] }
+uuid = { version = "1.23.0", features = ["v4"] }
 
 [build-dependencies]
-ureq = "3.1.4"
-zip = "6.0.0"
+ureq = "3.3.0"
+zip = "8.4.0"
 
 [dev-dependencies]
 http-body-util = "0.1.3"
-tower = { version = "0.5.2", features = ["util"] }
+tower = { version = "0.5.3", features = ["util"] }

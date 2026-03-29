@@ -1,7 +1,7 @@
 macro_rules! generate_secure_string {
     ($length:expr) => {{
         use base64ct::{Base64UrlUnpadded, Encoding};
-        use rand::RngCore;
+        use rand::Rng;
 
         let mut bytes = [0u8; $length];
         rand::rng().fill_bytes(&mut bytes);

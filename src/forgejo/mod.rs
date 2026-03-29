@@ -10,7 +10,7 @@ use crate::api::{
 };
 
 use axum::{Json, Router, body::Bytes, http::HeaderMap, routing::post};
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::collections::HashMap;
