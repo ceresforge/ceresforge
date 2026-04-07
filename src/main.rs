@@ -250,6 +250,15 @@ async fn create_admin() {
     .unwrap();
 }
 
+fn read_string(prompt: &str) -> Option<String> {
+    print!("{}: ", prompt);
+    stdout().flush().unwrap();
+    let mut s = String::new();
+    stdin().read_line(&mut s).unwrap();
+    let s = s.trim().to_string();
+    if s.is_empty() { None } else { Some(s) }
+}
+
 async fn create_oauth2_client() {
     let pool = PgPoolOptions::new()
         .acquire_timeout(Duration::from_secs(1))
@@ -258,23 +267,22 @@ async fn create_oauth2_client() {
         .await
         .unwrap();
 
-    print!("Name: ");
-    stdout().flush().unwrap();
-    let mut name = String::new();
-    stdin().read_line(&mut name).unwrap();
-    let name = name.trim();
+    let name = read_string("Name").unwrap();
+    let redirect_uri = read_string("Redirect URI").unwrap();
+    let client = match read_string("Client ID (blank to generate)") {
+        None => crate::auth::oauth2::generate_client(&pool, &name)
+            .await
+            .unwrap(),
+        Some(client_id) => {
+            let client_secret = read_string("Client Secret (blank to generate): ")
+                .unwrap_or_else(|| crate::auth::oauth2::generate_client_secret());
+            crate::auth::oauth2::create_client(&pool, &name, client_id, client_secret)
+                .await
+                .unwrap()
+        }
+    };
 
-    print!("Redirect URI: ");
-    stdout().flush().unwrap();
-    let mut redirect_uri = String::new();
-    stdin().read_line(&mut redirect_uri).unwrap();
-    let redirect_uri = redirect_uri.trim();
-
-    let client = crate::auth::oauth2::create_client(&pool, &name)
-        .await
-        .unwrap();
-
-    crate::auth::oauth2::create_client_redirect_uri(&pool, &client.id, redirect_uri)
+    crate::auth::oauth2::create_client_redirect_uri(&pool, &client.id, &redirect_uri)
         .await
         .unwrap();
 

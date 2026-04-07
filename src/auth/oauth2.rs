@@ -24,13 +24,15 @@ use time::OffsetDateTime;
 use url::Url;
 
 #[derive(Debug, Error)]
-enum Oauth2Error {
+pub enum Oauth2Error {
     #[error("invalid scope")]
     InvalidScope,
     #[error("unsupported scope")]
     UnsupportedScope,
     #[error(transparent)]
     Sql(#[from] sqlx::Error),
+    #[error("already exists")]
+    AlreadyExists,
 }
 
 #[derive(Debug)]
@@ -79,7 +81,7 @@ fn generate_client_id() -> String {
     generate_secure_string!(24)
 }
 
-fn generate_client_secret() -> String {
+pub fn generate_client_secret() -> String {
     generate_secure_string!(32)
 }
 
@@ -123,12 +125,20 @@ fn get_scopes(scope: &str) -> Result<Vec<&str>, Oauth2Error> {
         .collect()
 }
 
-pub async fn create_client(pool: &PgPool, name: &str) -> Result<Client, sqlx::Error> {
+pub async fn generate_client(pool: &PgPool, name: &str) -> Result<Client, Oauth2Error> {
     let id = generate_client_id();
     let secret = generate_client_secret();
+    create_client(pool, name, id, secret).await
+}
+
+pub async fn create_client(
+    pool: &PgPool,
+    name: &str,
+    id: String,
+    secret: String,
+) -> Result<Client, Oauth2Error> {
     let secret_hash = generate_secure_hash(&secret).unwrap();
-    // TODO: Check rows_affected()
-    let _result = sqlx::query!(
+    let result = sqlx::query!(
         r#"
         INSERT INTO
             auth_oauth2_clients
@@ -141,6 +151,9 @@ pub async fn create_client(pool: &PgPool, name: &str) -> Result<Client, sqlx::Er
     )
     .execute(pool)
     .await?;
+    if result.rows_affected() == 0 {
+        return Err(Oauth2Error::AlreadyExists);
+    }
     Ok(Client { id, secret })
 }
 
@@ -148,9 +161,9 @@ pub async fn create_client_redirect_uri(
     pool: &PgPool,
     id: &str,
     redirect_uri: &str,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), Oauth2Error> {
     // TODO: Check rows_affected()
-    let _result = sqlx::query!(
+    let result = sqlx::query!(
         r#"
         INSERT INTO
             auth_oauth2_client_redirect_uris
@@ -162,6 +175,9 @@ pub async fn create_client_redirect_uri(
     )
     .execute(pool)
     .await?;
+    if result.rows_affected() == 0 {
+        return Err(Oauth2Error::AlreadyExists);
+    }
     Ok(())
 }
 
