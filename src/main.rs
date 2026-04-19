@@ -26,11 +26,12 @@ use argon2::{
     Argon2,
     password_hash::{PasswordHasher, SaltString, rand_core::OsRng},
 };
+use aws_config::BehaviorVersion;
 use axum::{
     Router,
     body::Body,
-    extract::{FromRef, OriginalUri, State, WebSocketUpgrade},
-    http::{HeaderMap, Request, StatusCode, Uri, header},
+    extract::{FromRef, State},
+    http::{Request, StatusCode, Uri, header},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
@@ -40,6 +41,10 @@ use clap::{Parser, Subcommand};
 use hyper_util::{
     client::legacy::{Client, connect::HttpConnector},
     rt::TokioExecutor,
+};
+use lettre::{
+    AsyncSmtpTransport, Tokio1Executor, message::Mailbox,
+    transport::smtp::authentication::Credentials,
 };
 use rsa::{RsaPrivateKey, pkcs8::DecodePrivateKey};
 use sqlx::postgres::{PgPool, PgPoolOptions};
@@ -76,6 +81,9 @@ struct AppState {
     key: Key,
     jwt_rsa_key: RsaPrivateKey,
     client: Client<HttpConnector, Body>,
+    mailer: AsyncSmtpTransport<Tokio1Executor>,
+    from_mailbox: Mailbox,
+    s3_client: aws_sdk_s3::Client,
 }
 
 impl FromRef<AppState> for Key {
@@ -159,11 +167,27 @@ async fn app() -> Router {
 
     let client = Client::builder(TokioExecutor::new()).build(HttpConnector::new());
 
+    let smtp_host = std::env::var("SMTP_HOST").unwrap();
+    let smtp_username = std::env::var("SMTP_USERNAME").unwrap();
+    let smtp_password = std::env::var("SMTP_PASSWORD").unwrap();
+    let credentials = Credentials::new(smtp_username, smtp_password);
+    let mailer = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&smtp_host)
+        .unwrap()
+        .credentials(credentials)
+        .build();
+    let from_mailbox = std::env::var("SMTP_FROM_MAILBOX").unwrap().parse().unwrap();
+
+    let config = aws_config::defaults(BehaviorVersion::latest()).load().await;
+    let s3_client = aws_sdk_s3::Client::new(&config);
+
     let state = AppState {
         pool,
         key,
         jwt_rsa_key,
         client,
+        mailer,
+        from_mailbox,
+        s3_client,
     };
 
     Router::new()
@@ -195,6 +219,15 @@ fn generate_secure_hash(password: &str) -> Result<String, argon2::password_hash:
         .to_string())
 }
 
+fn read_string(prompt: &str) -> Option<String> {
+    print!("{}: ", prompt);
+    stdout().flush().unwrap();
+    let mut s = String::new();
+    stdin().read_line(&mut s).unwrap();
+    let s = s.trim().to_string();
+    if s.is_empty() { None } else { Some(s) }
+}
+
 async fn create_admin() {
     let pool = PgPoolOptions::new()
         .acquire_timeout(Duration::from_secs(1))
@@ -203,17 +236,8 @@ async fn create_admin() {
         .await
         .unwrap();
 
-    print!("Username: ");
-    stdout().flush().unwrap();
-    let mut username = String::new();
-    stdin().read_line(&mut username).unwrap();
-    let username = username.trim();
-
-    print!("Email: ");
-    stdout().flush().unwrap();
-    let mut email = String::new();
-    stdin().read_line(&mut email).unwrap();
-    let email = email.trim();
+    let username = read_string("Username").unwrap();
+    let email = read_string("Email").unwrap();
 
     let password = rpassword::prompt_password("Password: ").unwrap();
     if password.is_empty() || password.len() < 8 {
@@ -248,15 +272,6 @@ async fn create_admin() {
     .execute(&pool)
     .await
     .unwrap();
-}
-
-fn read_string(prompt: &str) -> Option<String> {
-    print!("{}: ", prompt);
-    stdout().flush().unwrap();
-    let mut s = String::new();
-    stdin().read_line(&mut s).unwrap();
-    let s = s.trim().to_string();
-    if s.is_empty() { None } else { Some(s) }
 }
 
 async fn create_oauth2_client() {
